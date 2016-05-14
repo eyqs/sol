@@ -1,4 +1,5 @@
 #lang racket
+(require pict)
 (provide (all-defined-out))
 
 ;; Brute force Sudoku solver.
@@ -40,98 +41,15 @@
 ;; =================
 ;; Constants:
 
-(define ALL-VALS (list 1 2 3 4 5 6 7 8 9))
-(define B false)
-(define BD1
-  (list B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B))
-(define BD2
-  (list 1 2 3 4 5 6 7 8 9 
-        B B B B B B B B B 
-        B B B B B B B B B 
-        B B B B B B B B B 
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B
-        B B B B B B B B B))
-(define BD3
-  (list 1 B B B B B B B B
-        2 B B B B B B B B
-        3 B B B B B B B B
-        4 B B B B B B B B
-        5 B B B B B B B B
-        6 B B B B B B B B
-        7 B B B B B B B B
-        8 B B B B B B B B
-        9 B B B B B B B B))
-(define BD4
-  (list 2 7 4 B 9 1 B B 5
-        1 B B 5 B B B 9 B
-        6 B B B B 3 2 8 B
-        B B 1 9 B B B B 8
-        B B 5 1 B B 6 B B
-        7 B B B 8 B B B 3
-        4 B 2 B B B B B 9
-        B B B B B B B 7 B
-        8 B B 3 4 9 B B B))
-(define BD4s
-  (list 2 7 4 8 9 1 3 6 5
-        1 3 8 5 2 6 4 9 7
-        6 5 9 4 7 3 2 8 1
-        3 2 1 9 6 4 7 5 8
-        9 8 5 1 3 7 6 4 2
-        7 4 6 2 8 5 9 1 3
-        4 6 2 7 5 8 1 3 9
-        5 9 3 6 1 2 8 7 4
-        8 1 7 3 4 9 5 2 6))
-(define BD5
-  (list 5 B B B B 4 B 7 B
-        B 1 B B 5 B 6 B B
-        B B 4 9 B B B B B
-        B 9 B B B 7 5 B B
-        1 8 B 2 B B B B B 
-        B B B B B 6 B B B 
-        B B 3 B B B B B 8
-        B 6 B B 8 B B B 9
-        B B 8 B 7 B B 3 1))
-(define BD5s
-  (list 5 3 9 1 6 4 8 7 2
-        8 1 2 7 5 3 6 9 4
-        6 7 4 9 2 8 3 1 5
-        2 9 6 4 1 7 5 8 3
-        1 8 7 2 3 5 9 4 6
-        3 4 5 8 9 6 1 2 7
-        9 2 3 5 4 1 7 6 8
-        7 6 1 3 8 2 4 5 9
-        4 5 8 6 7 9 2 3 1))
-(define BD6
-  (list B B 5 3 B B B B B 
-        8 B B B B B B 2 B
-        B 7 B B 1 B 5 B B 
-        4 B B B B 5 3 B B
-        B 1 B B 7 B B B 6
-        B B 3 2 B B B 8 B
-        B 6 B 5 B B B B 9
-        B B 4 B B B B 3 B
-        B B B B B 9 7 B B))
-(define BD7
-  (list 1 2 3 4 5 6 7 8 B 
-        B B B B B B B B 2 
-        B B B B B B B B 3 
-        B B B B B B B B 4 
-        B B B B B B B B 5
-        B B B B B B B B 6
-        B B B B B B B B 7
-        B B B B B B B B 8
-        B B B B B B B B 9))
+(define FONT-SIZE 16)
+(define CELL-WIDTH 20)
+(define CELL-HEIGHT 20)
+(define LINE-WIDTH 2)
+(define LINE-HEIGHT 2)
+(define BOX-WIDTH (* 3 CELL-WIDTH))
+(define BOX-HEIGHT (* 3 CELL-HEIGHT))
+(define BOARD-WIDTH (+ (* 3 BOX-WIDTH) (* 2 LINE-WIDTH)))
+(define BOARD-HEIGHT (+ (* 3 BOX-HEIGHT) (* 2 LINE-HEIGHT)))
 (define ROWS
   (list (list  0  1  2  3  4  5  6  7  8)
         (list  9 10 11 12 13 14 15 16 17)
@@ -259,3 +177,34 @@
           (define (read-pos p)              ;Pos -> Val
             (read-square bd p))]            ; - produce contents of bd at p
     (valid-units? UNITS)))
+
+;; Board -> Image
+;; render an image of the current board
+(define (render bd)
+  (local [(define VLINE (rectangle LINE-WIDTH BOX-HEIGHT))
+          (define HLINE (rectangle BOARD-WIDTH LINE-HEIGHT))
+          (define (render-bd bd)
+            (vc-append (hc-append (first bd)   VLINE (second bd) VLINE (third bd))
+                       HLINE
+                       (hc-append (fourth bd)  VLINE (fifth bd)  VLINE (sixth bd))
+                       HLINE
+                       (hc-append (seventh bd) VLINE (eighth bd) VLINE (ninth bd))))
+          (define (list-bd bd acc)
+            ;; acc is (listof Unit); the boxes to be rendered
+            (cond [(empty? acc) empty]
+                  [else
+                   (cons (render-box (list-box bd (first acc)))
+                         (list-bd bd (rest acc)))]))
+          (define (render-box box)
+            (table 3 box cc-superimpose cc-superimpose 0 0))
+          (define (list-box bd box)
+            (cond [(empty? box) empty]
+                  [else
+                   (cons (render-cell (read-square bd (first box)))
+                         (list-box bd (rest box)))]))
+          (define (render-cell val)
+            (if (number? val)
+                (cc-superimpose (rectangle CELL-WIDTH CELL-HEIGHT)
+                                (text (number->string val) null FONT-SIZE 0))
+                (rectangle CELL-WIDTH CELL-HEIGHT)))]
+    (render-bd (list-bd bd BOXES))))
