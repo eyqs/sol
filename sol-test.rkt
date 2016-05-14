@@ -1,5 +1,6 @@
 #lang racket
-(provide (all-defined-out))
+(require rackunit)
+(require "sol.rkt")
 
 ;; Brute force Sudoku solver.
 ;;
@@ -167,95 +168,46 @@
 
 
 ;; =================
-;; Functions:
+;; Unit tests:
 
-;; Natural[0, 8] Natural[0, 8] -> Pos
-;; convert zero-indexed row and column to Pos
-(define (r-c->pos r c)
-  (+ (* r 9) c))
-
-;; Board Pos -> Val
-;; produce value at given position on board
-(define (read-square bd p)
-  (list-ref bd p))
-
-;; Board Pos Val -> Board
-;; produce new board with nv at given position
-(define (fill-square bd p nv)
-  (append (take bd p)
-          (list nv)
-          (drop bd (add1 p))))
-
-;; Board -> Board or false
-;; produce a solution for bd, or false if bd is unsolvable
-;; ASSUME: bd is valid
-(define (solve bd)
-  (local [(define (fn-for-bd bd)
-            (if (solved? bd)
-                bd
-                (fn-for-lobd (next-boards bd))))
-          (define (fn-for-lobd lobd)
-            (cond [(empty? lobd) false]
-                  [else
-                   (local [(define try (fn-for-bd (first lobd)))]
-                     (if (not (false? try))
-                         try
-                         (fn-for-lobd (rest lobd))))]))]
-    (fn-for-bd bd)))
-
-;; Board -> Boolean
-;; produce true if board is solved
-;; ASSUME: board is valid, so it is solved if it is full
-(define (solved? bd)
-  (andmap number? bd))
-
-;; Board -> (listof Board)
-;; produce list of valid next boards from board
-;; find first empty square, fill it with Natural[1, 9], keep only valid boards
-(define (next-boards bd)
-  (keep-only-valid (fill-with-1-9 (find-blank bd) bd)))
-
-;; Board -> Pos
-;; produce the position of the first blank square
-;; ASSUME: the board has at least one blank square
-(define (find-blank bd)
-  (cond [(empty? bd) (error "The board didn't have a blank space.")]
-        [else
-         (if (false? (first bd))
-             0
-             (+ 1 (find-blank (rest bd))))]))
-
-;; Pos Board -> (listof Board)
-;; produce 9 boards, with blank filled with Natural[1, 9]
-(define (fill-with-1-9 p bd)
-  (local [(define (build-one n)
-            (fill-square bd p (+ n 1)))]
-    (build-list 9 build-one)))
-
-;; (listof Board) -> (listof Board)
-;; produce list containing only valid boards
-(define (keep-only-valid lobd)
-  (filter valid-board? lobd))
-
-;; Board -> Boolean
-;; produce true if no unit on the board has the same natural twice, false otherwise
-(define (valid-board? bd)
-  (local [(define (valid-units? lou)        ;(listOf Unit) -> Boolean
-            (andmap valid-unit? lou))       ; - produce true if all units are valid
-          (define (valid-unit? lop)         ;(listof Pos) -> Boolean
-            (no-duplicates?                 ; - produce true if a single unit is valid
-             (keep-only-values
-              (read-unit lop))))
-          (define (no-duplicates? lon)      ;(listof Natural[1, 9]) -> Boolean
-            (cond [(empty? lon) true]       ; - produce true if no natural appears twice
-                  [else
-                   (if (member (first lon) (rest lon))
-                       false
-                       (no-duplicates? (rest lon)))]))
-          (define (keep-only-values lov)    ;(listof Val) -> (listof Natural[1, 9])
-            (filter number? lov))           ; - produce a list of only naturals
-          (define (read-unit lop)           ;(listof Pos) -> (listof Val)
-            (map read-pos lop))             ; - produce values of bd in the unit
-          (define (read-pos p)              ;Pos -> Val
-            (read-square bd p))]            ; - produce contents of bd at p
-    (valid-units? UNITS)))
+(check-equal? (read-square BD2 (r-c->pos 0 5)) 6)
+(check-equal? (read-square BD3 (r-c->pos 7 0)) 8)
+(check-equal? (fill-square BD1 (r-c->pos 0 0) 1)
+              (cons 1 (rest BD1)))
+(check-equal? (solve BD4) BD4s)
+(check-equal? (solve BD5) BD5s)
+(check-equal? (solve BD7) false)
+(check-equal? (solved? BD1) false)
+(check-equal? (solved? BD2) false)
+(check-equal? (solved? BD4s) true)
+(check-equal? (next-boards (cons 1 (rest BD1)))
+              (list (cons 1 (cons 2 (rest (rest BD1))))
+                    (cons 1 (cons 3 (rest (rest BD1))))
+                    (cons 1 (cons 4 (rest (rest BD1))))
+                    (cons 1 (cons 5 (rest (rest BD1))))
+                    (cons 1 (cons 6 (rest (rest BD1))))
+                    (cons 1 (cons 7 (rest (rest BD1))))
+                    (cons 1 (cons 8 (rest (rest BD1))))
+                    (cons 1 (cons 9 (rest (rest BD1))))))
+(check-equal? (find-blank BD1) 0)
+(check-equal? (find-blank (cons 2 (rest BD1))) 1)
+(check-equal? (find-blank (cons 2 (cons 4 (rest (rest BD1))))) 2)
+(check-equal? (fill-with-1-9 0 BD1)
+              (list (cons 1 (rest BD1))
+                    (cons 2 (rest BD1))
+                    (cons 3 (rest BD1))
+                    (cons 4 (rest BD1))
+                    (cons 5 (rest BD1))
+                    (cons 6 (rest BD1))
+                    (cons 7 (rest BD1))
+                    (cons 8 (rest BD1))
+                    (cons 9 (rest BD1))))
+(check-equal? (keep-only-valid (list (cons 1 (cons 1 (rest (rest BD1)))))) empty)
+(check-equal? (valid-board? BD1) true)
+(check-equal? (valid-board? BD2) true)
+(check-equal? (valid-board? BD3) true)
+(check-equal? (valid-board? BD4) true)
+(check-equal? (valid-board? BD5) true)
+(check-equal? (valid-board? (cons 2 (rest BD2))) false)
+(check-equal? (valid-board? (cons 2 (rest BD3))) false)
+(check-equal? (valid-board? (cons 2 (cons 6 (rest (rest BD4))))) false)
