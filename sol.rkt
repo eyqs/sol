@@ -50,6 +50,7 @@
 (define BOX-HEIGHT (* 3 CELL-HEIGHT))
 (define BOARD-WIDTH (+ (* 3 BOX-WIDTH) (* 2 LINE-WIDTH)))
 (define BOARD-HEIGHT (+ (* 3 BOX-HEIGHT) (* 2 LINE-HEIGHT)))
+(define SLICE-COLOUR "Moccasin")
 (define ROWS
   (list (list  0  1  2  3  4  5  6  7  8)
         (list  9 10 11 12 13 14 15 16 17)
@@ -234,3 +235,29 @@
                 (text (number->string (read-square bd p)) null FONT-SIZE 0)
                 (blank)))]
     (highlight-all bd col lop img)))
+
+;; Board Unit Natural[1, 9] -> Image
+;; given a board, a box unit, and a number, produce a board image that highlights
+;; every cell in the box that intersects a row or column where the number appears
+(define (highlight-slices bd box n)
+  (local [(define (highlight-slices bd box n img)
+            (cond [(empty? box) img]
+                  [(in-unit? (list-ref COLS (remainder (first box) 9)) n)
+                   (if (in-unit? (list-ref ROWS (quotient (first box) 9)) n)
+                       (highlight bd SLICE-COLOUR (list-ref COLS (remainder (first box) 9))
+                                  (highlight bd SLICE-COLOUR (list-ref ROWS (quotient (first box) 9))
+                                             (highlight-slices bd (rest box) n img)))
+                       (highlight bd SLICE-COLOUR (list-ref COLS (remainder (first box) 9))
+                                  (highlight-slices bd (rest box) n img)))]
+                  [(in-unit? (list-ref ROWS (quotient (first box) 9)) n)
+                   (highlight bd SLICE-COLOUR (list-ref ROWS (quotient (first box) 9))
+                              (highlight-slices bd (rest box) n img))]
+                  [else
+                   (highlight-slices bd (rest box) n img)]))
+          (define (in-unit? lop n)
+            (cond [(empty? lop) false]
+                  [(and (number? (read-square bd (first lop)))
+                        (= (read-square bd (first lop)) n)) true]
+                  [else
+                   (in-unit? (rest lop) n)]))]
+    (highlight-slices bd box n (render bd))))
