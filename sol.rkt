@@ -208,3 +208,29 @@
                                 (text (number->string val) null FONT-SIZE 0))
                 (rectangle CELL-WIDTH CELL-HEIGHT)))]
     (render-bd (list-bd bd BOXES))))
+
+;; Board String (listof Pos) Image -> Image
+;; highlight a list of positions on the board with the given colour
+(define (highlight bd col lop img)
+  (local [(define (highlight-all bd col lop img)
+            (cond [(empty? lop) img]
+                  [else
+                   (highlight-one bd col (first lop) (highlight-all bd col (rest lop) img))]))
+          (define (highlight-one bd col p img)
+            (pin-over img
+                      (x-coordinate (remainder p 9))
+                      (y-coordinate (quotient p 9))
+                      (cc-superimpose
+                       (filled-rectangle CELL-WIDTH CELL-HEIGHT #:color col)
+                       (number-image bd p))))
+          (define (x-coordinate n)
+            (+ (* n CELL-WIDTH)
+               (* (quotient n 3) LINE-WIDTH)))
+          (define (y-coordinate n)
+            (+ (* n CELL-HEIGHT)
+               (* (quotient n 3) LINE-HEIGHT)))
+          (define (number-image bd p)
+            (if (number? (read-square bd p))
+                (text (number->string (read-square bd p)) null FONT-SIZE 0)
+                (blank)))]
+    (highlight-all bd col lop img)))
