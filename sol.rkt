@@ -2,15 +2,7 @@
 (require pict)
 (provide (all-defined-out))
 
-;; Brute force Sudoku solver.
-;;
-;; In Sudoku, the board is a 9x9 grid of squares.
-;; There are 9 rows and 9 columns, there are also 9
-;; 3x3 boxes. Rows, columns and boxes are all units.
-;; So there are 27 units.
-;;
-;; The overall goal of the game is to fill each square with a
-;; Natural[1, 9] such that no unit contains a duplicate number.
+;; Dumb force Sudoku solver.
 
 ;; =================
 ;; Data definitions:
@@ -19,12 +11,7 @@
 ;; interp. value of a square, or false if blank
 
 ;; Board is (listof Val) that is 81 elements long
-;; interp. Visually a board is a 9x9 array of squares, where
-;;         each square has a row and column (r, c). But we
-;;         represent it as a single flat list, in which the
-;;         rows are layed out one after another in a linear
-;;         fashion. (See interpretation of Pos below for how
-;;         we convert between (r, c) and position in a board.)
+;; interp. a list of values of every square on the board
 
 ;; Pos is Natural[0, 80]
 ;; interp. the position of a square on the board
@@ -33,8 +20,9 @@
 ;;          - the zero-indexed column is (remainder p 9)
 
 ;; Unit is (listof Pos) of length 9
-;; interp. The position of every square in a unit. There are
-;;         27 of these for the 9 rows, 9 columns and 9 boxes.
+;; interp. the position of every square in a unit
+;;         a unit is a row, column, or box
+;;         no duplicate numbers can be in a unit
 
 
 
@@ -52,6 +40,7 @@
 (define BOARD-HEIGHT (+ (* 3 BOX-HEIGHT) (* 2 LINE-HEIGHT)))
 (define SLICE-COLOUR "Moccasin")
 (define FOCUS-COLOUR "LightSalmon")
+(define SPACE-COLOUR "LightCyan")
 (define NEW-COLOUR "LightGreen")
 (define ROWS
   (list (list  0  1  2  3  4  5  6  7  8)
@@ -239,29 +228,45 @@
     (highlight-all bd col lop img)))
 
 ;; Temporary testing function before I make this into a world program
-(define (test-render bd)
-  (local [(define (test-render bd box n)
-            (cond [(< 9 n) bd]
-                  [(= 9 box) (test-render bd 0 (add1 n))]
-                  [(equal? bd (solve-slices bd (list-ref BOXES box) n))
-                   (test-render bd (add1 box) n)]
+(define-struct testboard (bd box n))
+(define (test-spaces bd)
+  (local [(define (test-spaces bd unit)
+            (cond [(<= 27 unit) (test-slices bd)]
+                  [(equal? bd (solve-spaces bd (list-ref UNITS unit)))
+                   (test-spaces bd (add1 unit))]
                   [else
-                   (test-render (solve-slices bd (list-ref BOXES box) n) (add1 box) n)]))]
-    (test-render bd 0 0)))
+                   (make-testboard (solve-spaces bd (list-ref UNITS unit)) unit false)]))]
+    (test-spaces bd 0)))
+(define (test-slices bd)
+  (local [(define (test-slices bd box n)
+            (cond [(< 9 n) (make-testboard bd false false)]
+                  [(= 9 box) (test-slices bd 0 (add1 n))]
+                  [(equal? bd (solve-slices bd (list-ref BOXES box) n))
+                   (test-slices bd (add1 box) n)]
+                  [else
+                   (make-testboard (solve-slices bd (list-ref BOXES box) n) box n)]))]
+    (test-slices bd 0 1)))
 (define B false)
 (define test-bd
-  (list 2 7 4 B 9 1 B B 5
-        1 B B 5 B B B 9 B
-        6 B B B B 3 2 8 B
-        B B 1 9 B B B B 8
-        B B 5 1 B B 6 B B
-        7 B B B 8 B B B 3
-        4 B 2 B B B B B 9
-        B B B B B B B 7 B
-        8 B B 3 4 9 B B B))
+  (list 1 3 B 2 B B 7 4 B
+        B 2 5 B 1 B B B B
+        4 8 B B 6 B B 5 B
+        B B B 7 8 B 2 1 B
+        5 B B B 9 B 3 7 B
+        9 B B B 3 B B B 5
+        B 4 B B B 6 8 9 B
+        B 5 3 B B 1 4 B B
+        6 B B B B B B B B))
+(define tb (make-testboard test-bd false false))
 (define (next)
-  (begin (set! test-bd (test-render test-bd))
-         (render test-bd)))
+  (begin
+    (set! test-bd (testboard-bd tb))
+    (set! tb (test-spaces test-bd))
+    (if (not (false? (testboard-box tb)))
+        (if (not (false? (testboard-n tb)))
+            (highlight-slices test-bd (list-ref BOXES (testboard-box tb)) (testboard-n tb) (render test-bd))
+            (highlight test-bd SPACE-COLOUR (list-ref UNITS (testboard-box tb)) (render test-bd)))
+        (render test-bd))))
 
 ;; Board Unit Natural[1, 9] -> Board
 ;; given a board, a box unit, and a number, produce the board with the number
@@ -323,3 +328,28 @@
          (first lop)]
         [else
          (in-unit? bd (rest lop) n)]))
+
+;; Board Unit -> Board
+;; given a board and a unit, produce the board with the unit
+;; filled in if there is only one number left to fill
+(define (solve-spaces bd lop)
+  (local [(define (solve-spaces lon)
+            (if (= 8 (length values))
+                (fill-square bd
+                             (get-pos lop)
+                             (get-value lon))
+                bd))
+          (define (get-value lon)
+            (first (remove* values lon)))
+          (define (get-pos lop)
+            (if (false? (read-pos (first lop)))
+                (first lop)
+                (get-pos (rest lop))))
+          (define (keep-only-values lov)
+            (filter number? lov))
+          (define (read-unit lop)
+            (map read-pos lop))
+          (define (read-pos p)
+            (read-square bd p))
+          (define values (keep-only-values (read-unit lop)))]
+    (solve-spaces (list 1 2 3 4 5 6 7 8 9))))
