@@ -51,6 +51,8 @@
 (define BOARD-WIDTH (+ (* 3 BOX-WIDTH) (* 2 LINE-WIDTH)))
 (define BOARD-HEIGHT (+ (* 3 BOX-HEIGHT) (* 2 LINE-HEIGHT)))
 (define SLICE-COLOUR "Moccasin")
+(define FOCUS-COLOUR "LightSalmon")
+(define NEW-COLOUR "LightGreen")
 (define ROWS
   (list (list  0  1  2  3  4  5  6  7  8)
         (list  9 10 11 12 13 14 15 16 17)
@@ -236,28 +238,88 @@
                 (blank)))]
     (highlight-all bd col lop img)))
 
-;; Board Unit Natural[1, 9] -> Image
-;; given a board, a box unit, and a number, produce a board image that highlights
-;; every cell in the box that intersects a row or column where the number appears
-(define (highlight-slices bd box n)
-  (local [(define (highlight-slices bd box n img)
-            (cond [(empty? box) img]
-                  [(in-unit? (list-ref COLS (remainder (first box) 9)) n)
-                   (if (in-unit? (list-ref ROWS (quotient (first box) 9)) n)
-                       (highlight bd SLICE-COLOUR (list-ref COLS (remainder (first box) 9))
-                                  (highlight bd SLICE-COLOUR (list-ref ROWS (quotient (first box) 9))
-                                             (highlight-slices bd (rest box) n img)))
-                       (highlight bd SLICE-COLOUR (list-ref COLS (remainder (first box) 9))
-                                  (highlight-slices bd (rest box) n img)))]
-                  [(in-unit? (list-ref ROWS (quotient (first box) 9)) n)
-                   (highlight bd SLICE-COLOUR (list-ref ROWS (quotient (first box) 9))
-                              (highlight-slices bd (rest box) n img))]
+;; Temporary testing function before I make this into a world program
+(define (test-render bd)
+  (local [(define (test-render bd box n)
+            (cond [(< 9 n) bd]
+                  [(= 9 box) (test-render bd 0 (add1 n))]
+                  [(equal? bd (solve-slices bd (list-ref BOXES box) n))
+                   (test-render bd (add1 box) n)]
                   [else
-                   (highlight-slices bd (rest box) n img)]))
-          (define (in-unit? lop n)
-            (cond [(empty? lop) false]
-                  [(and (number? (read-square bd (first lop)))
-                        (= (read-square bd (first lop)) n)) true]
-                  [else
-                   (in-unit? (rest lop) n)]))]
-    (highlight-slices bd box n (render bd))))
+                   (test-render (solve-slices bd (list-ref BOXES box) n) (add1 box) n)]))]
+    (test-render bd 0 0)))
+(define B false)
+(define test-bd
+  (list 2 7 4 B 9 1 B B 5
+        1 B B 5 B B B 9 B
+        6 B B B B 3 2 8 B
+        B B 1 9 B B B B 8
+        B B 5 1 B B 6 B B
+        7 B B B 8 B B B 3
+        4 B 2 B B B B B 9
+        B B B B B B B 7 B
+        8 B B 3 4 9 B B B))
+(define (next)
+  (begin (set! test-bd (test-render test-bd))
+         (render test-bd)))
+
+;; Board Unit Natural[1, 9] -> Board
+;; given a board, a box unit, and a number, produce the board with the number
+;; filled in inside the box unit if there is only one space for it to be
+(define (solve-slices bd box n)
+  (if (in-unit? bd box n)
+      bd
+      (local [(define (solve-slices bd box n acc)
+                (if (empty? box)
+                    (if (empty? acc)
+                        bd
+                        (if (empty? (rest acc))
+                            (fill-square bd (first acc) n)
+                            bd))
+                    (local [(define column (list-ref COLS (remainder (first box) 9)))
+                            (define row (list-ref ROWS (quotient (first box) 9)))
+                            (define colpos (in-unit? bd column n))
+                            (define rowpos (in-unit? bd row n))]
+                      (cond [(and (false? colpos) (false? rowpos) (false? (read-square bd (first box))))
+                             (solve-slices bd (rest box) n (cons (first box) acc))]
+                            [else
+                             (solve-slices bd (rest box) n acc)]))))]
+        (solve-slices bd box n empty))))
+
+;; Board Unit Natural[1, 9] Image -> Image
+;; given a board, a box unit, a number, and an image, produce a board image that highlights
+;; every row and column that intersects the box, if the number is in that row or column
+(define (highlight-slices bd box n img)
+  (if (empty? box)
+      img
+      (local [(define column (list-ref COLS (remainder (first box) 9)))
+              (define row (list-ref ROWS (quotient (first box) 9)))
+              (define colpos (in-unit? bd column n))
+              (define rowpos (in-unit? bd row n))]
+        (cond [(not (false? colpos))
+               (if (not (false? rowpos))
+                   (highlight bd FOCUS-COLOUR (list colpos)
+                              (highlight bd SLICE-COLOUR column
+                                         (highlight bd FOCUS-COLOUR (list rowpos)
+                                                    (highlight bd SLICE-COLOUR row
+                                                               (highlight-slices bd (rest box) n img)))))
+                   (highlight bd FOCUS-COLOUR (list colpos)
+                              (highlight bd SLICE-COLOUR column
+                                         (highlight-slices bd (rest box) n img))))]
+              [(not (false? rowpos))
+               (highlight bd FOCUS-COLOUR (list rowpos)
+                          (highlight bd SLICE-COLOUR row
+                                     (highlight-slices bd (rest box) n img)))]
+              [else
+               (highlight-slices bd (rest box) n img)]))))
+
+;; Board Unit Natural[1, 9] -> Pos or false
+;; given a board, a unit and a number, return the position
+;; of the number in the unit or false if it is not there
+(define (in-unit? bd lop n)
+  (cond [(empty? lop) false]
+        [(and (number? (read-square bd (first lop)))
+              (= n (read-square bd (first lop))))
+         (first lop)]
+        [else
+         (in-unit? bd (rest lop) n)]))
