@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/gui
 (require pict)
 (provide (all-defined-out))
 
@@ -31,9 +31,11 @@
 
 (define FONT-SIZE 16)
 (define CELL-WIDTH 20)
-(define CELL-HEIGHT 20)
+(define CELL-HEIGHT CELL-WIDTH)
 (define LINE-WIDTH 2)
-(define LINE-HEIGHT 2)
+(define LINE-HEIGHT LINE-WIDTH)
+(define TEXTSPACE-WIDTH 5)
+(define TEXTSPACE-HEIGHT 2)
 (define BOX-WIDTH (* 3 CELL-WIDTH))
 (define BOX-HEIGHT (* 3 CELL-HEIGHT))
 (define BOARD-WIDTH (+ (* 3 BOX-WIDTH) (* 2 LINE-WIDTH)))
@@ -73,6 +75,17 @@
         (list 57 58 59 66 67 68 75 76 77)
         (list 60 61 62 69 70 71 78 79 80)))
 (define UNITS (append ROWS COLS BOXES))
+
+
+
+;; =================
+;; Windowing:
+
+(define frame (new frame% [label "sol"]))
+(define canvas (new canvas% [parent frame] [style (list 'transparent)]
+                    [min-width BOARD-WIDTH] [min-height BOARD-HEIGHT]))
+(send frame show true)
+(define DC (send canvas get-dc))
 
 
 
@@ -173,33 +186,18 @@
 ;; Board -> Image
 ;; render an image of the current board
 (define (render bd)
-  (local [(define VLINE (rectangle LINE-WIDTH BOX-HEIGHT))
-          (define HLINE (rectangle BOARD-WIDTH LINE-HEIGHT))
-          (define (render-bd bd)
-            (vc-append (hc-append (first bd)   VLINE (second bd) VLINE (third bd))
-                       HLINE
-                       (hc-append (fourth bd)  VLINE (fifth bd)  VLINE (sixth bd))
-                       HLINE
-                       (hc-append (seventh bd) VLINE (eighth bd) VLINE (ninth bd))))
-          (define (list-bd bd acc)
-            ;; acc is (listof Unit); the boxes to be rendered
-            (cond [(empty? acc) empty]
-                  [else
-                   (cons (render-box (list-box bd (first acc)))
-                         (list-bd bd (rest acc)))]))
-          (define (render-box box)
-            (table 3 box cc-superimpose cc-superimpose 0 0))
-          (define (list-box bd box)
-            (cond [(empty? box) empty]
-                  [else
-                   (cons (render-cell (read-square bd (first box)))
-                         (list-box bd (rest box)))]))
-          (define (render-cell val)
-            (if (number? val)
-                (cc-superimpose (rectangle CELL-WIDTH CELL-HEIGHT)
-                                (text (number->string val) null FONT-SIZE 0))
-                (rectangle CELL-WIDTH CELL-HEIGHT)))]
-    (render-bd (list-bd bd BOXES))))
+  (local [(define (render-cell pos val)
+            (local [(define x (+ (* CELL-WIDTH (remainder pos 9))
+                                 (* LINE-WIDTH (quotient (remainder pos 9) 3))))
+                    (define y (+ (* CELL-HEIGHT (quotient pos 9))
+                                 (* LINE-HEIGHT (quotient (quotient pos 9) 3))))]
+              (send DC draw-rectangle x y CELL-WIDTH CELL-HEIGHT)
+              (if (number? val)
+                  (send DC draw-text (number->string val)
+                        (+ x TEXTSPACE-WIDTH) (+ y TEXTSPACE-HEIGHT))
+                  (void))))]
+    (for ([i bd] [j (build-list 81 identity)])
+      (render-cell j i))))
 
 ;; Board String (listof Pos) Image -> Image
 ;; highlight a list of positions on the board with the given colour
