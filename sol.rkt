@@ -35,7 +35,8 @@
 (define panel (new horizontal-panel% [parent frame] [alignment '(center center)]))
 (define prev-btn (new button% [parent panel] [label "<<"]
                       [callback (lambda (button event) (prev))]))
-(define current (new message% [parent panel] [label "1"]))
+(define current (new message% [parent panel] [label "1"]
+                     [min-width (exact-round (* 3 (send DC get-char-width)))]))
 (define next-btn (new button% [parent panel] [label ">>"]
                       [callback (lambda (button event) (next))]))
 (send frame show true)
@@ -70,22 +71,22 @@
 (define C3 (make-cell V3 EMPTY-COLOUR))
 (define C4 (make-cell V4 EMPTY-COLOUR))
 (define C5 (make-cell V5 EMPTY-COLOUR))
-(define C6 (make-cell V6 SLICE-COLOUR))
-(define C7 (make-cell V7 FOCUS-COLOUR))
-(define C8 (make-cell V8 SPACE-COLOUR))
-(define C9 (make-cell V9 PLACE-COLOUR))
+(define C6 (make-cell V6 EMPTY-COLOUR))
+(define C7 (make-cell V7 EMPTY-COLOUR))
+(define C8 (make-cell V8 EMPTY-COLOUR))
+(define C9 (make-cell V9 EMPTY-COLOUR))
 
 ;; Board is (listof Cell)
 ;; interp. a list of all 81 cells in the board
-(define B1 (list C1 C3 C0 C2 C0 C0 C7 C4 C0
-                 C0 C2 C5 C0 C1 C0 C0 C0 C0
-                 C4 C8 C0 C0 C6 C0 C0 C5 C0
-                 C0 C0 C0 C7 C8 C0 C2 C1 C0
-                 C5 C0 C0 C0 C9 C0 C3 C7 C0
-                 C9 C0 C0 C0 C3 C0 C0 C0 C5
-                 C0 C4 C0 C0 C0 C6 C8 C9 C0
-                 C0 C5 C3 C0 C0 C1 C4 C0 C0
-                 C6 C0 C0 C0 C0 C0 C0 C0 C0))
+(define B4 (list C2 C7 C4 C0 C9 C1 C0 C0 C5
+                 C1 C0 C0 C5 C0 C0 C0 C9 C0
+                 C6 C0 C0 C0 C0 C3 C2 C8 C0
+                 C0 C0 C1 C9 C0 C0 C0 C0 C8
+                 C0 C0 C5 C1 C0 C0 C6 C0 C0
+                 C7 C0 C0 C0 C8 C0 C0 C0 C3
+                 C4 C0 C2 C0 C0 C0 C0 C0 C9
+                 C0 C0 C0 C0 C0 C0 C0 C7 C0
+                 C8 C0 C0 C3 C4 C9 C0 C0 C0))
 
 ;; Position is Natural[0, 81)
 ;; interp. the position of a cell on the board
@@ -93,6 +94,7 @@
 ;; Unit is (listof Position)
 ;; interp. a list of the positions of every cell in a unit, which is
 ;;         a row, column, or box, which cannot have duplicate numbers
+(define ALL-POS (build-list 81 identity))
 (define ROWS  '(( 0  1  2  3  4  5  6  7  8)
                 ( 9 10 11 12 13 14 15 16 17)
                 (18 19 20 21 22 23 24 25 26)
@@ -102,15 +104,15 @@
                 (54 55 56 57 58 59 60 61 62)
                 (63 64 65 66 67 68 69 70 71)
                 (72 73 74 75 76 77 78 79 80)))
-(define COLS  '((0   9 18 27 36 45 54 63 72)
-                (1  10 19 28 37 46 55 64 73)
-                (2  11 20 29 38 47 56 65 74)
-                (3  12 21 30 39 48 57 66 75)
-                (4  13 22 31 40 49 58 67 76)
-                (5  14 23 32 41 50 59 68 77)
-                (6  15 24 33 42 51 60 69 78)
-                (7  16 25 34 43 52 61 70 79)
-                (8  17 26 35 44 53 62 71 80)))
+(define COLS  '(( 0  9 18 27 36 45 54 63 72)
+                ( 1 10 19 28 37 46 55 64 73)
+                ( 2 11 20 29 38 47 56 65 74)
+                ( 3 12 21 30 39 48 57 66 75)
+                ( 4 13 22 31 40 49 58 67 76)
+                ( 5 14 23 32 41 50 59 68 77)
+                ( 6 15 24 33 42 51 60 69 78)
+                ( 7 16 25 34 43 52 61 70 79)
+                ( 8 17 26 35 44 53 62 71 80)))
 (define BOXES '(( 0  1  2  9 10 11 18 19 20)
                 ( 3  4  5 12 13 14 21 22 23)
                 ( 6  7  8 15 16 17 24 25 26)
@@ -146,6 +148,19 @@
 (define (rc->pos r c)
   (+ (* r 9) c))
 
+;; Position -> Unit
+;; produce the unit which contains the given position
+(define (pos->rowu p)
+  (list-ref ROWS (pos->row p)))
+(define (pos->colu p)
+  (list-ref COLS (pos->col p)))
+(define (pos->boxu p)
+  (local [(define (pos->boxu lou)
+            (if (member p (first lou))
+                (first lou)
+                (pos->boxu (rest lou))))]
+    (pos->boxu BOXES)))
+
 ;; Board Position -> Cell
 ;; produce the value at the given position on the board
 (define (read-cell b p)
@@ -167,7 +182,7 @@
 ;;          generated in the process of solving the
 ;;          given Sudoku board, which is (last world)
 ;; space is the index of the current board in world
-(define world (list B1))
+(define world (list B4))
 (define space 0)
 
 ;; start with a new board
@@ -175,6 +190,7 @@
   (begin (set! world (list b))
          (set! space 0)
          (set-index)
+         (send next-btn enable true)
          (send prev-btn enable false)
          (render (first world))))
 
@@ -188,8 +204,10 @@
   (if (zero? space)
       (local [(define try (solve-next (first world)))]
         (if (false? try)
-            (begin (send next-btn enable false)
-                   (render (first world)))
+            (begin (set-index)
+                   (send next-btn enable false)
+                   (send prev-btn enable true)
+                   (render (clear (first world))))
             (begin (set! world (cons try world))
                    (set-index)
                    (send prev-btn enable true)
@@ -201,8 +219,11 @@
 
 ;; move to the previous board, which is more behind in the list
 (define (prev)
-  (if (zero? (- (length world) space 1))
-      (begin (send prev-btn enable false)
+  (if (zero? (- (length world) space 2))
+      (begin (set! space (add1 space))
+             (set-index)
+             (send prev-btn enable false)
+             (send next-btn enable true)
              (render (last world)))
       (begin (set! space (add1 space))
              (set-index)
@@ -227,8 +248,23 @@
               (send DC draw-rectangle x y CELL-WIDTH CELL-HEIGHT)
               (send DC draw-text (val->str (cell-value c))
                     (+ x (/ (- CELL-WIDTH w) 2)) (+ y (/ (- CELL-HEIGHT h) 2 )))))]
-    (for ([i (build-list 81 identity)] [j b])
+    (for ([i ALL-POS] [j b])
       (render-cell i j))))
+
+;; Board Unit String -> Board
+;; produce the given board with all cells in
+;; the given unit coloured by the given colour
+(define (colour b lop c)
+  (if (empty? lop)
+      b
+      (fill-cell (colour b (rest lop) c)
+                 (first lop)
+                 (make-cell (cell-value (read-cell b (first lop))) c))))
+
+;; Board -> Board
+;; produce the given board with no colouring
+(define (clear b)
+  (colour b ALL-POS EMPTY-COLOUR))
 
 ;; Board -> Board or false
 ;; given a board, produce the next board, or
@@ -241,8 +277,8 @@
           [else try-space])))
 
 ;; (Board Natural[1, 9] Unit -> Board) Board -> Board or false
-;; given a board, produce the board with one more step, or
-;; false if no more steps can be taken from the given board
+;; given a board and a next-step function, produce the board with
+;; one more step, or false if no more new steps can be found
 (define (solve-step c b)
   (local [(define (solve-step b n u)
             (cond [(zero? (- 27 u)) false]
@@ -257,13 +293,51 @@
 ;; Board Natural[1, 9] Unit -> Board
 ;; given a board, a number, and a unit, produce the board with
 ;; the unit filled in if the number is the last one in the unit
-;; !!!
-(define (solve-space b n lop)
-  b)
+(define (solve-space b n u)
+  (local [(define (get-pos lop)
+            (if (false? (cell-value (read-cell b (first lop))))
+                (first lop)
+                (get-pos (rest lop))))
+          (define numbers
+            (filter number? (map (lambda (p) (cell-value (read-cell b p))) u)))]
+    (if (and (= 8 (length numbers))
+             (= 8 (length (remove n numbers))))
+        (fill-cell (colour (clear b) u SPACE-COLOUR)
+                   (get-pos u)
+                   (make-cell n PLACE-COLOUR))
+        b)))
 
 ;; Board Natural[1, 9] Unit -> Board
 ;; given a board, a number, and a unit, produce the board with
 ;; the number inside the unit if it can only fit in one place
-;; !!!
-(define (solve-slice b n lop)
-  b)
+(define (solve-slice b n u)
+  ;; acc is (listof Position); the list of all positions the number can be in
+  (local [(define (get-pos b n lop acc)
+            (cond [(empty? lop) acc]
+                  [(valid? (first lop))
+                   (get-pos b n (rest lop) (cons (first lop) acc))]
+                  [else
+                   (get-pos b n (rest lop) acc)]))
+          (define (valid? p)
+            (and (false? (cell-value (read-cell b p)))
+                 (false? (in-unit? b n (all-units p)))))
+          (define (all-units p)
+            (append (pos->rowu p) (pos->colu p) (pos->boxu p)))
+          (define positions
+            (get-pos b n u empty))]
+    (if (= 1 (length positions))
+        (fill-cell (colour (colour (clear b)
+                                   (all-units (first positions)) SLICE-COLOUR)
+                           u FOCUS-COLOUR)
+                   (first positions)
+                   (make-cell n PLACE-COLOUR))
+        b)))
+
+;; Board Natural[1, 9] Unit -> Boolean
+;; given a board, a number, and a unit, produce true if
+;; the number is in the unit on the board, otherwise false
+(define (in-unit? b n lop)
+  (cond [(empty? lop) false]
+        [(and (number? (cell-value (read-cell b (first lop))))
+              (= n (cell-value (read-cell b (first lop))))) true]
+        [else (in-unit? b n (rest lop))]))
