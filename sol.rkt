@@ -1,5 +1,4 @@
 #lang racket/gui
-(require pict)
 (provide (all-defined-out))
 
 ;; =================
@@ -23,7 +22,7 @@
 
 
 ;; =================
-;; Windowing:
+;; Interface frames:
 
 (define frame (new frame% [label "sol"]))
 (define menu-bar (new menu-bar% [parent frame]))
@@ -34,10 +33,11 @@
                     [min-width BOARD-WIDTH] [min-height BOARD-HEIGHT]))
 (define DC (send canvas get-dc))
 (define panel (new horizontal-panel% [parent frame] [alignment '(center center)]))
-(new button% [parent panel] [label "<<"]
-     [callback (lambda (button event) (prev))])
-(new button% [parent panel] [label ">>"]
-     [callback (lambda (button event) (next))])
+(define prev-btn (new button% [parent panel] [label "<<"]
+                      [callback (lambda (button event) (prev))]))
+(define current (new message% [parent panel] [label "1"]))
+(define next-btn (new button% [parent panel] [label ">>"]
+                      [callback (lambda (button event) (next))]))
 (send frame show true)
 
 
@@ -161,10 +161,11 @@
 
 
 ;; =================
-;; Functions:
+;; Global variables:
 
-;; world is the list of all intermediate boards
-;; generated in the process of solving a Sudoku
+;; world is the list of all the intermediate boards
+;;          generated in the process of solving the
+;;          given Sudoku board, which is (last world)
 ;; space is the index of the current board in world
 (define world (list B1))
 (define space 0)
@@ -173,24 +174,49 @@
 (define (main b)
   (begin (set! world (list b))
          (set! space 0)
-         (render)))
+         (set-index)
+         (send prev-btn enable false)
+         (render (first world))))
 
-;; move to the next board
+;; set the label with the reversed index of the current board
+(define (set-index)
+  (send current set-label
+        (number->string (- (length world) space))))
+
+;; move to the next board, which is more in front in the list
 (define (next)
-  (if (zero? (- (length world) space 1))
-      (render)
-      (begin (set! space (add1 space))
-             (render))))
-
-;; move to the previous board
-(define (prev)
   (if (zero? space)
-      (render)
+      (local [(define try (solve-next (first world)))]
+        (if (false? try)
+            (begin (send next-btn enable false)
+                   (render (first world)))
+            (begin (set! world (cons try world))
+                   (set-index)
+                   (send prev-btn enable true)
+                   (render (first world)))))
       (begin (set! space (sub1 space))
-             (render))))
+             (set-index)
+             (send prev-btn enable true)
+             (render (list-ref world space)))))
 
-;; render an image of the current board
-(define (render)
+;; move to the previous board, which is more behind in the list
+(define (prev)
+  (if (zero? (- (length world) space 1))
+      (begin (send prev-btn enable false)
+             (render (last world)))
+      (begin (set! space (add1 space))
+             (set-index)
+             (send next-btn enable true)
+             (render (list-ref world space)))))
+
+
+
+;; =================
+;; Functions:
+
+;; Board -> Image
+;; render an image of the given board
+(define (render b)
   (local [(define (render-cell p c)
             (local [(define x (+ (* CELL-WIDTH (pos->col p))
                                  (* LINE-WIDTH (quotient (pos->col p) 3))))
@@ -201,5 +227,43 @@
               (send DC draw-rectangle x y CELL-WIDTH CELL-HEIGHT)
               (send DC draw-text (val->str (cell-value c))
                     (+ x (/ (- CELL-WIDTH w) 2)) (+ y (/ (- CELL-HEIGHT h) 2 )))))]
-    (for ([i (build-list 81 identity)] [j (list-ref world space)])
+    (for ([i (build-list 81 identity)] [j b])
       (render-cell i j))))
+
+;; Board -> Board or false
+;; given a board, produce the next board, or
+;; false if the given board is the last board
+(define (solve-next b)
+  (local [(define try-space (solve-step solve-space b))
+          (define try-slice (solve-step solve-slice b))]
+    (cond [(and (false? try-space) (false? try-slice)) false]
+          [(false? try-space) try-slice]
+          [else try-space])))
+
+;; (Board Natural[1, 9] Unit -> Board) Board -> Board or false
+;; given a board, produce the board with one more step, or
+;; false if no more steps can be taken from the given board
+(define (solve-step c b)
+  (local [(define (solve-step b n u)
+            (cond [(zero? (- 27 u)) false]
+                  [(zero? (- 10 n)) (solve-step b 1 (add1 u))]
+                  [else
+                   (local [(define try (c b n (list-ref UNITS u)))]
+                     (if (equal? b try)
+                         (solve-step b (add1 n) u)
+                         try))]))]
+    (solve-step b 1 0)))
+
+;; Board Natural[1, 9] Unit -> Board
+;; given a board, a number, and a unit, produce the board with
+;; the unit filled in if the number is the last one in the unit
+;; !!!
+(define (solve-space b n lop)
+  b)
+
+;; Board Natural[1, 9] Unit -> Board
+;; given a board, a number, and a unit, produce the board with
+;; the number inside the unit if it can only fit in one place
+;; !!!
+(define (solve-slice b n lop)
+  b)
