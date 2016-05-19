@@ -2,30 +2,6 @@
 (require pict)
 (provide (all-defined-out))
 
-;; Dumb force Sudoku solver.
-
-;; =================
-;; Data definitions:
-
-;; Val is Natural[1, 9] or false
-;; interp. value of a square, or false if blank
-
-;; Board is (listof Val) that is 81 elements long
-;; interp. a list of values of every square on the board
-
-;; Pos is Natural[0, 80]
-;; interp. the position of a square on the board
-;;         for a given Pos p, then
-;;          - the zero-indexed row is (quotient p 9)
-;;          - the zero-indexed column is (remainder p 9)
-
-;; Unit is (listof Pos) of length 9
-;; interp. the position of every square in a unit
-;;         a unit is a row, column, or box
-;;         no duplicate numbers can be in a unit
-
-
-
 ;; =================
 ;; Constants:
 
@@ -34,8 +10,6 @@
 (define CELL-HEIGHT CELL-WIDTH)
 (define LINE-WIDTH 2)
 (define LINE-HEIGHT LINE-WIDTH)
-(define TEXTSPACE-WIDTH 5)
-(define TEXTSPACE-HEIGHT 2)
 (define BOX-WIDTH (* 3 CELL-WIDTH))
 (define BOX-HEIGHT (* 3 CELL-HEIGHT))
 (define BOARD-WIDTH (+ (* 3 BOX-WIDTH) (* 2 LINE-WIDTH)))
@@ -44,37 +18,6 @@
 (define FOCUS-COLOUR "LightSalmon")
 (define SPACE-COLOUR "LightCyan")
 (define NEW-COLOUR "LightGreen")
-(define ROWS
-  (list (list  0  1  2  3  4  5  6  7  8)
-        (list  9 10 11 12 13 14 15 16 17)
-        (list 18 19 20 21 22 23 24 25 26)
-        (list 27 28 29 30 31 32 33 34 35)
-        (list 36 37 38 39 40 41 42 43 44)
-        (list 45 46 47 48 49 50 51 52 53)
-        (list 54 55 56 57 58 59 60 61 62)
-        (list 63 64 65 66 67 68 69 70 71)
-        (list 72 73 74 75 76 77 78 79 80)))
-(define COLS
-  (list (list 0  9 18 27 36 45 54 63 72)
-        (list 1 10 19 28 37 46 55 64 73)
-        (list 2 11 20 29 38 47 56 65 74)
-        (list 3 12 21 30 39 48 57 66 75)
-        (list 4 13 22 31 40 49 58 67 76)
-        (list 5 14 23 32 41 50 59 68 77)
-        (list 6 15 24 33 42 51 60 69 78)
-        (list 7 16 25 34 43 52 61 70 79)
-        (list 8 17 26 35 44 53 62 71 80)))
-(define BOXES
-  (list (list  0  1  2  9 10 11 18 19 20)
-        (list  3  4  5 12 13 14 21 22 23)
-        (list  6  7  8 15 16 17 24 25 26)
-        (list 27 28 29 36 37 38 45 46 47)
-        (list 30 31 32 39 40 41 48 49 50)
-        (list 33 34 35 42 43 44 51 52 53)
-        (list 54 55 56 63 64 65 72 73 74)
-        (list 57 58 59 66 67 68 75 76 77)
-        (list 60 61 62 69 70 71 78 79 80)))
-(define UNITS (append ROWS COLS BOXES))
 
 
 
@@ -82,7 +25,7 @@
 ;; Windowing:
 
 (define frame (new frame% [label "sol"]))
-(define canvas (new canvas% [parent frame] [style (list 'transparent)]
+(define canvas (new canvas% [parent frame] [style '(transparent)]
                     [min-width BOARD-WIDTH] [min-height BOARD-HEIGHT]))
 (send frame show true)
 (define DC (send canvas get-dc))
@@ -90,24 +33,118 @@
 
 
 ;; =================
-;; Functions:
+;; Data definitions:
 
-;; Natural[0, 8] Natural[0, 8] -> Pos
-;; convert zero-indexed row and column to Pos
-(define (r-c->pos r c)
+;; Value is Natural[1, 9] or false
+;; interp. the number inside a cell, or
+;;         false if the cell is blank
+(define V0 false)
+(define V1 1)
+(define V2 2)
+(define V3 3)
+(define V4 4)
+(define V5 5)
+(define V6 6)
+(define V7 7)
+(define V8 8)
+(define V9 9)
+
+(define-struct cell (value colour))
+;; Cell is (make-cell Value String)
+;; interp. (make-cell value colour) is a cell, where
+;;         value is the value of the cell, as a Value
+;;         colour is the colour of the cell, as a String
+(define C0 (make-cell V0 "White"))
+(define C1 (make-cell V1 "White"))
+(define C2 (make-cell V2 "White"))
+(define C3 (make-cell V3 "White"))
+(define C4 (make-cell V4 "White"))
+(define C5 (make-cell V5 "White"))
+(define C6 (make-cell V6 "Moccasin"))
+(define C7 (make-cell V7 "LightSalmon"))
+(define C8 (make-cell V8 "LightCyan"))
+(define C9 (make-cell V9 "LightGreen"))
+
+;; Board is (listof Cell)
+;; interp. a list of all 81 cells in the board
+(define B1 (list C1 C3 C0 C2 C0 C0 C7 C4 C0
+                 C0 C2 C5 C0 C1 C0 C0 C0 C0
+                 C4 C8 C0 C0 C6 C0 C0 C5 C0
+                 C0 C0 C0 C7 C8 C0 C2 C1 C0
+                 C5 C0 C0 C0 C9 C0 C3 C7 C0
+                 C9 C0 C0 C0 C3 C0 C0 C0 C5
+                 C0 C4 C0 C0 C0 C6 C8 C9 C0
+                 C0 C5 C3 C0 C0 C1 C4 C0 C0
+                 C6 C0 C0 C0 C0 C0 C0 C0 C0))
+
+;; Position is Natural[0, 81)
+;; interp. the position of a cell on the board
+
+;; Unit is (listof Position)
+;; interp. a list of the positions of every cell in a unit, which is
+;;         a row, column, or box, which cannot have duplicate numbers
+(define ROWS  '(( 0  1  2  3  4  5  6  7  8)
+                ( 9 10 11 12 13 14 15 16 17)
+                (18 19 20 21 22 23 24 25 26)
+                (27 28 29 30 31 32 33 34 35)
+                (36 37 38 39 40 41 42 43 44)
+                (45 46 47 48 49 50 51 52 53)
+                (54 55 56 57 58 59 60 61 62)
+                (63 64 65 66 67 68 69 70 71)
+                (72 73 74 75 76 77 78 79 80)))
+(define COLS  '((0   9 18 27 36 45 54 63 72)
+                (1  10 19 28 37 46 55 64 73)
+                (2  11 20 29 38 47 56 65 74)
+                (3  12 21 30 39 48 57 66 75)
+                (4  13 22 31 40 49 58 67 76)
+                (5  14 23 32 41 50 59 68 77)
+                (6  15 24 33 42 51 60 69 78)
+                (7  16 25 34 43 52 61 70 79)
+                (8  17 26 35 44 53 62 71 80)))
+(define BOXES '(( 0  1  2  9 10 11 18 19 20)
+                ( 3  4  5 12 13 14 21 22 23)
+                ( 6  7  8 15 16 17 24 25 26)
+                (27 28 29 36 37 38 45 46 47)
+                (30 31 32 39 40 41 48 49 50)
+                (33 34 35 42 43 44 51 52 53)
+                (54 55 56 63 64 65 72 73 74)
+                (57 58 59 66 67 68 75 76 77)
+                (60 61 62 69 70 71 78 79 80)))
+(define UNITS (append ROWS COLS BOXES))
+
+
+
+;; =================
+;; Data conversions:
+
+;; Position -> Natural[0, 9)
+;; convert Position to zero-indexed row and column
+(define (pos->row p)
+  (quotient p 9))
+(define (pos->col p)
+  (remainder p 9))
+
+;; Natural[0, 9) Natural[0, 9) -> Position
+;; convert zero-indexed row and column to Position
+(define (rc->pos r c)
   (+ (* r 9) c))
 
-;; Board Pos -> Val
-;; produce value at given position on board
-(define (read-square bd p)
-  (list-ref bd p))
+;; Board Position -> Value
+;; produce the value at the given position on the board
+(define (read-square b p)
+  (list-ref b p))
 
-;; Board Pos Val -> Board
-;; produce new board with nv at given position
-(define (fill-square bd p nv)
-  (append (take bd p)
-          (list nv)
-          (drop bd (add1 p))))
+;; Board Position Value -> Board
+;; produce a new board with the given value at the given position
+(define (fill-square b p v)
+  (append (take b p)
+          (list v)
+          (drop b (add1 p))))
+
+
+
+;; =================
+;; Functions:
 
 ;; Board -> Board or false
 ;; produce a solution for bd, or false if bd is unsolvable
@@ -187,15 +224,18 @@
 ;; render an image of the current board
 (define (render bd)
   (local [(define (render-cell pos val)
-            (local [(define x (+ (* CELL-WIDTH (remainder pos 9))
-                                 (* LINE-WIDTH (quotient (remainder pos 9) 3))))
-                    (define y (+ (* CELL-HEIGHT (quotient pos 9))
-                                 (* LINE-HEIGHT (quotient (quotient pos 9) 3))))]
+            (local [(define x (+ (* CELL-WIDTH (pos->col pos))
+                                 (* LINE-WIDTH (quotient (pos->col pos) 3))))
+                    (define y (+ (* CELL-HEIGHT (pos->row pos))
+                                 (* LINE-HEIGHT (quotient (pos->row pos) 3))))
+                    (define (val->string val)
+                      (if (number? val)
+                          (number->string val)
+                          ""))
+                    (define-values (w h d a) (send DC get-text-extent (val->string val)))]
               (send DC draw-rectangle x y CELL-WIDTH CELL-HEIGHT)
-              (if (number? val)
-                  (send DC draw-text (number->string val)
-                        (+ x TEXTSPACE-WIDTH) (+ y TEXTSPACE-HEIGHT))
-                  (void))))]
+              (send DC draw-text (val->string val)
+                    (+ x (/ (- CELL-WIDTH w) 2)) (+ y (/ (- CELL-HEIGHT h) 2 )))))]
     (for ([i bd] [j (build-list 81 identity)])
       (render-cell j i))))
 
@@ -208,8 +248,8 @@
                    (highlight-one bd col (first lop) (highlight-all bd col (rest lop) img))]))
           (define (highlight-one bd col p img)
             (pin-over img
-                      (x-coordinate (remainder p 9))
-                      (y-coordinate (quotient p 9))
+                      (x-coordinate (pos->col p))
+                      (y-coordinate (pos->row p))
                       (cc-superimpose
                        (filled-rectangle CELL-WIDTH CELL-HEIGHT #:color col)
                        (number-image bd p))))
@@ -279,8 +319,8 @@
                         (if (empty? (rest acc))
                             (fill-square bd (first acc) n)
                             bd))
-                    (local [(define column (list-ref COLS (remainder (first box) 9)))
-                            (define row (list-ref ROWS (quotient (first box) 9)))
+                    (local [(define column (list-ref COLS (pos->col (first box))))
+                            (define row (list-ref ROWS (pos->row (first box))))
                             (define colpos (in-unit? bd column n))
                             (define rowpos (in-unit? bd row n))]
                       (cond [(and (false? colpos) (false? rowpos) (false? (read-square bd (first box))))
@@ -295,8 +335,8 @@
 (define (highlight-slices bd box n img)
   (if (empty? box)
       img
-      (local [(define column (list-ref COLS (remainder (first box) 9)))
-              (define row (list-ref ROWS (quotient (first box) 9)))
+      (local [(define column (list-ref COLS (pos->col (first box))))
+              (define row (list-ref ROWS (pos->row (first box))))
               (define colpos (in-unit? bd column n))
               (define rowpos (in-unit? bd row n))]
         (cond [(not (false? colpos))
@@ -350,4 +390,4 @@
           (define (read-pos p)
             (read-square bd p))
           (define values (keep-only-values (read-unit lop)))]
-    (solve-spaces (list 1 2 3 4 5 6 7 8 9))))
+    (solve-spaces '(1 2 3 4 5 6 7 8 9))))
