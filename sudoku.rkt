@@ -456,3 +456,7 @@
 (module+ test
   (require (submod "..") rackunit)
   (check-not-exn (lambda () (main B0))))
+;  (check-equal? (read-square BD2 (r-c->pos 0 C5)) C6)
+;  (check-equal? (read-square BD3 (r-c->pos C7 0)) C8)
+;  (check-equal? (fill-square BD1 (r-c->pos 0 0) C1)
+;                (cons C1 (rest BD1))))
