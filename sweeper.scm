@@ -6,11 +6,6 @@
 (define NUMROWS 15)
 (define NUMCOLS NUMROWS)
 (define NUMCELL (* NUMROWS NUMCOLS))
-(define CELL-WIDTH 20)
-(define CELL-HEIGHT CELL-WIDTH)
-(define BOARD-WIDTH (* NUMCOLS CELL-WIDTH))
-(define BOARD-HEIGHT (* NUMROWS CELL-HEIGHT))
-(define device (make-graphics-device (car (enumerate-graphics-types))))
 
 
 
@@ -120,9 +115,9 @@
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
-  (cond ((false? (cell-visible c)) "")
-        ((false? (cell-value c)) "x")
-        (else (number->string (cell-value c)))))
+  (cond ((false? (cell-visible c)) "_ ")
+        ((false? (cell-value c)) "* ")
+        (else (string-append (number->string (cell-value c)) " "))))
 
 ;; Position -> Natural[0, NUMCOLS)
 ;; Position -> Natural[0, NUMROWS)
@@ -155,27 +150,16 @@
 ;; Functions:
 
 (define (main b)
-  (begin (graphics-operation device 'set-internal-border-width 20)
-         (graphics-set-coordinate-limits
-           device 0 0 BOARD-WIDTH BOARD-HEIGHT)
-         (sleep-current-thread 100)
-         (render b)))
+  (render b))
 
 (define (render b)
-  (begin (graphics-clear device)
-         (do ((i 0 (+ i 1)))
-           ((= i NUMCELL))
-           (render-cell i (cell->str (read-cell b i))))))
+  (do ((i 0 (+ i 1)))
+      ((= i NUMROWS))
+      (render-row b (* NUMCOLS i))
+      (newline)))
 
-(define (render-cell p c)
-  (define x (* CELL-WIDTH (pos->row p)))
-  (define y (* CELL-HEIGHT (pos->col p)))
-  (begin (draw-rectangle x y (+ x CELL-WIDTH) (+ y CELL-HEIGHT))
-         (graphics-draw-text device x y c)))
-
-(define (draw-rectangle x1 y1 x2 y2)
-  (begin (graphics-draw-line device x1 y1 x2 y1)
-				 (graphics-draw-line device x2 y1 x2 y2)
-         (graphics-draw-line device x2 y2 x1 y2)
-         (graphics-draw-line device x1 y2 x1 y1)))
+(define (render-row b i)
+  (do ((j 0 (+ j 1)))
+      ((= j NUMCOLS))
+      (display (cell->str (read-cell b (+ i j))))))
 
