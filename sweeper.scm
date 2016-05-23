@@ -76,10 +76,10 @@
                  C2 C4 CM C3 C2 CM C4 C4 C3 CM CM C3 C2 C3 CM
                  C1 CM CM C3 C2 C3 CM CM C2 C3 C3 C3 CM C2 C1
                  C2 C3 C4 CM C1 C2 CM C3 C2 C2 CM C2 C2 C2 C1
-                 C1 CM C4 C4 C2 C2 C2 C3 C3 CM C2 C1 C1 CM C2
+                 C1 CM C4 C4 C3 C2 C2 C3 C3 CM C2 C1 C1 CM C2
                  C1 C2 CM CM CM C1 C1 CM CM C2 C1 C0 C1 C2 CM
-                 C0 C1 C2 C4 C3 C2 C1 C2 C3 C2 C0 C0 C0 C1 C1
-                 C1 C1 C1 C1 CM C3 C1 C2 CM C2 C1 C1 C1 C1 C1
+                 C0 C1 C2 C4 C3 C2 C1 C3 C3 C2 C0 C0 C0 C1 C1
+                 C1 C1 C1 C1 CM C3 C2 C2 CM C2 C1 C1 C1 C1 C1
                  C1 CM C1 C1 C2 CM CM C2 C1 C2 CM C1 C1 CM C1))
 (define B2 (list C0 C1 CM C1 C2 CM C3 C3 CM C2 C0 C0 C0 C0 C0
                  C0 C1 C1 C1 C2 CM CM C5 CM C3 C0 C0 C0 C0 C0
@@ -112,28 +112,41 @@
 ;; =================
 ;; Data conversions:
 
+;; Cell -> Boolean
+;; produce #t if Cell is a mine, otherwise #f
+(define (is-mine? c)
+  (false? (cell-value c)))
+
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
   (cond ((false? (cell-visible c)) "_ ")
-        ((false? (cell-value c)) "* ")
+        ((is-mine? c) "* ")
         (else (string-append (number->string (cell-value c)) " "))))
 
-;; Position -> Natural[0, NUMCOLS)
 ;; Position -> Natural[0, NUMROWS)
+;; Position -> Natural[0, NUMCOLS)
 ;; convert Position to zero-indexed row and column
 (define (pos->row p)
-  (quotient p NUMROWS))
+  (quotient p NUMCOLS))
 (define (pos->col p)
   (remainder p NUMCOLS))
 
-;; Natural[0, NUMCOLS) Natural[0, NUMROWS) -> Position
+;; Natural[0, NUMROWS) Natural[0, NUMCOLS) -> Position
 ;; convert zero-indexed row and column to Position
 (define (rc->pos r c)
   (+ (* r NUMCOLS) c))
 
+;; Number Number -> Position or #f
+;; convert two numbers to Position only if they are
+;; a valid zero-indexed row column pair, otherwise #f
+(define (rc?->pos r c)
+  (cond ((and (<= 0 r) (<= 0 c) (> NUMROWS r) (> NUMCOLS c))
+         (rc->pos r c))
+        (else #f)))
+
 ;; Board Position -> Cell
-;; produce the value at the given position on the board
+;; produce the cell at the given position on the board
 (define (read-cell b p)
   (list-ref b p))
 
@@ -149,17 +162,57 @@
 ;; =================
 ;; Functions:
 
+;; start with a new board
 (define (main b)
-  (render b))
+  (render (reset b)))
 
+;; Board -> Display
+;; display a text representation of the given board
 (define (render b)
+  ;; Board Position -> Display
+  ;; display a text representation of the row of cells
+  ;; on the given board starting from the given position
+  (define (render-row b i)
+    (do ((j 0 (+ j 1)))
+        ((= j NUMCOLS))
+        (display (cell->str (read-cell b (+ i j))))))
   (do ((i 0 (+ i 1)))
       ((= i NUMROWS))
       (render-row b (* NUMCOLS i))
       (newline)))
 
-(define (render-row b i)
-  (do ((j 0 (+ j 1)))
-      ((= j NUMCOLS))
-      (display (cell->str (read-cell b (+ i j))))))
+;; Board -> Board
+;; produce the given board with all cells not visible
+;; and all non-mine cells with the proper number value
+(define (reset b)
+  ;; Board Position -> Board
+  ;; set the cell in the given position on the given board
+  ;; to the proper number value and make it not visible
+  (define (reset-board b i)
+    (cond ((= i NUMCELL) b)
+          ((is-mine? (read-cell b i))
+           (reset-board (fill-cell b i (make-cell #f #f)) (+ i 1)))
+          (else
+           (reset-board (fill-cell b i (make-cell (get-number b i 0 (neighbours i)) #f)) (+ i 1)))))
+  ;; Board Position Number (listof Position) -> Number
+  ;; produce the number of mines in the cells in lop
+  (define (get-number b p n lop)
+    (cond ((null? lop) n)
+          ((is-mine? (read-cell b (car lop))) (get-number b p (+ n 1) (cdr lop)))
+          (else (get-number b p n (cdr lop)))))
+  ;; Position -> (listof Position)
+  ;; produce a list of all positions adjacent to p
+  (define (neighbours p)
+    (let ((r (pos->row p))
+          (c (pos->col p)))
+      (filter (lambda (p) (not (false? p)))
+              (list (rc?->pos (+ r 1) (+ c 1))
+                    (rc?->pos (+ r 1) (+ c 0))
+                    (rc?->pos (+ r 1) (- c 1))
+                    (rc?->pos (+ r 0) (+ c 1))
+                    (rc?->pos (+ r 0) (- c 1))
+                    (rc?->pos (- r 1) (+ c 1))
+                    (rc?->pos (- r 1) (+ c 0))
+                    (rc?->pos (- r 1) (- c 1))))))
+  (reset-board b 0))
 
