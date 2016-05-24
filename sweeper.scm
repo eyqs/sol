@@ -209,18 +209,27 @@
 ;; move to the next board, which is more in front in the list
 (define (next)
   (cond ((zero? current-space)
-         (render (list-ref current-world current-space)))
+         (render (car current-world)))
         (else
          (set! current-space (- current-space 1))
          (render (list-ref current-world current-space)))))
 
 ;; move to the previous board, which is more behind in the list
 (define (prev)
-  (cond ((< 2 (- (length current-world) current-space))
-         (set! current-space (+ current-space 1))
-         (render (list-ref current-world current-space)))
+  (cond ((zero? (- (length current-world) current-space 1))
+         (render (last current-world)))
         (else
-         (render (last current-world)))))
+         (set! current-space (+ current-space 1))
+         (render (list-ref current-world current-space)))))
+
+;; uncover a cell in the board and add it to the list
+(define (guess r c)
+  (let ((world-history (drop current-world current-space))
+        (new-board (uncover (list-ref current-world current-space) r c)))
+    (cond ((not (false? new-board))
+           (set! current-world (cons new-board world-history))
+           (set! current-space 0)
+           (render (car current-world))))))
 
 
 
@@ -263,3 +272,12 @@
           (else (get-number b p n (cdr lop)))))
   (reset-board b 0))
 
+;; Board Number Number -> Board or false
+;; produce the given board with the position given by the numbers revealed, or #f
+;; if the numbers are an invalid row column pair or the position is already revealed
+(define (uncover b r c)
+  (let ((p (rc?->pos r c)))
+    (cond ((false? p) #f)
+          ((cell-visible (read-cell b p)) #f)
+          (else
+           (fill-cell b p (make-cell (cell-value (read-cell b p)) #t))))))
