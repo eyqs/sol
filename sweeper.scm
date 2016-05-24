@@ -96,6 +96,22 @@
                  C1 CM CM C2 C2 C2 CM C2 CM C1 C0 C0 C0 C0 C0
                  C1 C2 C3 C2 C2 C2 C2 C2 C1 C1 C0 C0 C0 C0 C0
                  C0 C0 C1 CM C2 CM C1 C0 C0 C0 C0 C0 C0 C0 C0))
+(define B3 (list C0 C0 C0 C0 C0 C0 C0 CM C0 C0 C0 CM C0 C0 C0
+                 C0 C0 C0 C0 CM C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 C0 C0 C0 C0 C0 CM C0 C0 C0 C0 CM C0 C0 C0
+                 CM C0 CM CM CM CM C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 CM CM C0 C0 C0 C0 CM CM C0 C0 C0 C0 CM C0 C0
+                 CM C0 CM C0 CM C0 C0 C0 C0 C0 CM C0 CM CM C0
+                 CM C0 CM C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM
+                 CM C0 C0 C0 C0 CM C0 CM C0 C0 C0 C0 C0 CM C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM C0 CM
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM C0
+                 C0 C0 C0 C0 CM CM C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 CM C0 C0 C0 C0 C0 CM C0 C0 C0 C0 C0 CM C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 CM CM C0 CM C0 C0 C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM))
 (define (is-board? b)
   (define (is-loc? b acc)
     (if (null? b)
@@ -157,14 +173,59 @@
           (list c)
           (drop b (+ p 1))))
 
+;; Position -> (listof Position)
+;; produce a list of all positions adjacent to p
+(define (neighbours p)
+  (let ((r (pos->row p))
+        (c (pos->col p)))
+    (filter (lambda (p) (not (false? p)))
+            (list (rc?->pos (+ r 1) (+ c 1))
+                  (rc?->pos (+ r 1) (+ c 0))
+                  (rc?->pos (+ r 1) (- c 1))
+                  (rc?->pos (+ r 0) (+ c 1))
+                  (rc?->pos (+ r 0) (- c 1))
+                  (rc?->pos (- r 1) (+ c 1))
+                  (rc?->pos (- r 1) (+ c 0))
+                  (rc?->pos (- r 1) (- c 1))))))
+
+
+
+;; =================
+;; Global variables:
+
+;; current-world is the list of all the intermediate boards
+;;               generated in the process of solving the given
+;;               Minesweeper board, which is (last current-world)
+;; current-space is the index of the current board in current-world
+(define current-world (list B0))
+(define current-space 0)
+
+;; start with a new board
+(define (main b)
+  (begin (set! current-world (list (reset b #f)))
+         (set! current-space 0)
+         (render (car current-world))))
+
+;; move to the next board, which is more in front in the list
+(define (next)
+  (cond ((zero? current-space)
+         (render (list-ref current-world current-space)))
+        (else
+         (set! current-space (- current-space 1))
+         (render (list-ref current-world current-space)))))
+
+;; move to the previous board, which is more behind in the list
+(define (prev)
+  (cond ((< 2 (- (length current-world) current-space))
+         (set! current-space (+ current-space 1))
+         (render (list-ref current-world current-space)))
+        (else
+         (render (last current-world)))))
+
 
 
 ;; =================
 ;; Functions:
-
-;; start with a new board
-(define (main b)
-  (render (reset b)))
 
 ;; Board -> Display
 ;; display a text representation of the given board
@@ -181,38 +242,24 @@
       (render-row b (* NUMCOLS i))
       (newline)))
 
-;; Board -> Board
-;; produce the given board with all cells not visible
-;; and all non-mine cells with the proper number value
-(define (reset b)
+;; Board Boolean -> Board
+;; produce the given board with the proper number value in all non-mine cells
+;; and all cells visible if v? is #t, otherwise all cells not visible
+(define (reset b v?)
   ;; Board Position -> Board
   ;; set the cell in the given position on the given board
-  ;; to the proper number value and make it not visible
+  ;; to the proper number value and make it visible or not
   (define (reset-board b i)
     (cond ((= i NUMCELL) b)
           ((is-mine? (read-cell b i))
-           (reset-board (fill-cell b i (make-cell #f #f)) (+ i 1)))
+           (reset-board (fill-cell b i (make-cell #f v?)) (+ i 1)))
           (else
-           (reset-board (fill-cell b i (make-cell (get-number b i 0 (neighbours i)) #f)) (+ i 1)))))
+           (reset-board (fill-cell b i (make-cell (get-number b i 0 (neighbours i)) v?)) (+ i 1)))))
   ;; Board Position Number (listof Position) -> Number
   ;; produce the number of mines in the cells in lop
   (define (get-number b p n lop)
     (cond ((null? lop) n)
           ((is-mine? (read-cell b (car lop))) (get-number b p (+ n 1) (cdr lop)))
           (else (get-number b p n (cdr lop)))))
-  ;; Position -> (listof Position)
-  ;; produce a list of all positions adjacent to p
-  (define (neighbours p)
-    (let ((r (pos->row p))
-          (c (pos->col p)))
-      (filter (lambda (p) (not (false? p)))
-              (list (rc?->pos (+ r 1) (+ c 1))
-                    (rc?->pos (+ r 1) (+ c 0))
-                    (rc?->pos (+ r 1) (- c 1))
-                    (rc?->pos (+ r 0) (+ c 1))
-                    (rc?->pos (+ r 0) (- c 1))
-                    (rc?->pos (- r 1) (+ c 1))
-                    (rc?->pos (- r 1) (+ c 0))
-                    (rc?->pos (- r 1) (- c 1))))))
   (reset-board b 0))
 
