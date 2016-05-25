@@ -110,8 +110,37 @@
                  C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM C0
                  C0 C0 C0 C0 CM CM C0 C0 C0 C0 C0 C0 C0 C0 C0
                  CM C0 C0 C0 C0 C0 CM C0 C0 C0 C0 C0 CM C0 C0
-                 C0 C0 C0 C0 C0 C0 C0 CM CM C0 CM C0 C0 C0 C0
-                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM))
+                 C0 C0 C0 C0 C0 C0 C0 CM CM C0 CM C0 C0 C0 C0))
+(define BM (list C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 C0 CM C0 CM C0 CM CM CM C0 CM C0 CM C0 C0
+                 C0 C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM CM CM C0 CM CM CM C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 CM CM C0 C0 CM C0 CM CM CM C0 CM CM C0 C0
+                 C0 CM C0 CM C0 CM C0 CM C0 C0 C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 C0 C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM CM CM C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 C0 C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 C0 C0 CM C0 CM C0
+                 C0 CM CM C0 C0 CM C0 CM CM CM C0 CM CM C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0))
+(define BW (list C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 C0 CM C0 CM C0 CM CM CM C0 CM C0 CM C0 C0
+                 C0 C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM C0 CM C0 CM C0 CM C0 C0
+                 C0 C0 C0 CM C0 C0 CM CM CM C0 CM CM CM C0 C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                 C0 CM C0 C0 C0 CM C0 CM C0 CM C0 C0 C0 CM C0
+                 C0 CM C0 C0 C0 CM C0 CM C0 CM CM C0 C0 CM C0
+                 C0 CM C0 C0 C0 CM C0 CM C0 CM C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0 CM C0
+                 C0 CM C0 CM C0 CM C0 CM C0 CM C0 C0 CM CM C0
+                 C0 C0 CM C0 CM C0 C0 CM C0 CM C0 C0 C0 CM C0
+                 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0))
 (define (is-board? b)
   (define (is-loc? b acc)
     (cond ((null? b) (= NUMCELL acc))
@@ -135,10 +164,10 @@
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
-  (cond ((false? (cell-visible c)) "= ")
-        ((is-mine? c) "* ")
-        ((zero? (cell-value c)) "_ ")
-        (else (string-append (number->string (cell-value c)) " "))))
+  (cond ((false? (cell-visible c)) "===")
+        ((is-mine? c) " * ")
+        ((zero? (cell-value c)) "___")
+        (else (string-append "|" (number->string (cell-value c)) "|"))))
 
 ;; Position -> Natural[0, NUMROWS)
 ;; Position -> Natural[0, NUMCOLS)
@@ -239,6 +268,13 @@
 ;; Board -> Display
 ;; display a text representation of the given board
 (define (render b)
+  ;; Natural[0, NUMCOLS) String -> String
+  ;; produce a string containing the naturals from 0 inclusive to
+  ;; NUMCOLS exclusive, to help support aid players to find cells
+  (define (render-nums i acc)
+    (cond ((zero? i) (string-append "    0" acc))
+          ((> 10 i) (render-nums (- i 1) (string-append "  " (number->string i) acc)))
+          (else (render-nums (- i 1) (string-append " " (number->string i) acc)))))
   ;; Board Position -> Display
   ;; display a text representation of the row of cells
   ;; on the given board starting from the given position
@@ -246,10 +282,14 @@
     (do ((j 0 (+ j 1)))
         ((= j NUMCOLS))
         (display (cell->str (read-cell b (+ i j))))))
-  (do ((i 0 (+ i 1)))
-      ((= i NUMROWS))
-      (render-row b (* NUMCOLS i))
-      (newline)))
+  (begin (display (render-nums (- NUMCOLS 1) ""))
+         (newline)
+         (do ((i 0 (+ i 1)))
+             ((= i NUMROWS))
+             (cond ((> 10 i) (display (string-append " " (number->string i) " ")))
+                   (else (display (string-append (number->string i) " "))))
+             (render-row b (* NUMCOLS i))
+             (newline))))
 
 ;; Board Boolean -> Board
 ;; produce the given board with the proper number value in all non-mine cells
@@ -299,7 +339,7 @@
   (let ((p (rc?->pos r c)))
        (cond ((false? p) #f)
              ((false? (cell-value (read-cell b p)))
-              (reveal b p))
+              BM)
              ((zero? (cell-value (read-cell b p)))
               (unearth b (cons p (neighbours p))))
              (else (reveal b p)))))
