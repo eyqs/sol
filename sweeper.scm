@@ -114,10 +114,9 @@
                  C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 C0 CM))
 (define (is-board? b)
   (define (is-loc? b acc)
-    (if (null? b)
-        (= NUMCELL acc)
-        (and (is-cell? (car b))
-             (is-loc? (cdr b) (+ acc 1)))))
+    (cond ((null? b) (= NUMCELL acc))
+          (else (and (is-cell? (car b))
+                     (is-loc? (cdr b) (+ acc 1))))))
   (is-loc? b 0))
 
 ;; Position is Natural[0, NUMCELL)
@@ -136,8 +135,9 @@
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
-  (cond ((false? (cell-visible c)) "_ ")
+  (cond ((false? (cell-visible c)) "= ")
         ((is-mine? c) "* ")
+        ((zero? (cell-value c)) "_ ")
         (else (string-append (number->string (cell-value c)) " "))))
 
 ;; Position -> Natural[0, NUMROWS)
@@ -222,10 +222,10 @@
          (set! current-space (+ current-space 1))
          (render (list-ref current-world current-space)))))
 
-;; uncover a cell in the board and add it to the list
+;; mine a cell in the board and add it to the list
 (define (guess r c)
   (let ((world-history (drop current-world current-space))
-        (new-board (uncover (list-ref current-world current-space) r c)))
+        (new-board (mine (list-ref current-world current-space) r c)))
     (cond ((not (false? new-board))
            (set! current-world (cons new-board world-history))
            (set! current-space 0)
@@ -273,11 +273,33 @@
   (reset-board b 0))
 
 ;; Board Number Number -> Board or false
-;; produce the given board with the position given by the numbers revealed, or #f
-;; if the numbers are an invalid row column pair or the position is already revealed
-(define (uncover b r c)
-  (let ((p (rc?->pos r c)))
-    (cond ((false? p) #f)
-          ((cell-visible (read-cell b p)) #f)
+;; produce the given board with the following cells revealed:
+;; (1) the cell with the position given by the numbers
+;; (2) all cells with value 0 adjacent to a cell with value 0 revealed by (1) or (2)
+;; (3) all cells adjacent to a cell with value 0 revealed by (1) or (2)
+;; or #f if the numbers are an invalid row column pair or the position is already revealed
+(define (mine b r c)
+  ;; Board Position -> Board or false
+  ;; produce the given board with the given position
+  ;; revealed, or #f if the position is already revealed
+  (define (reveal b p)
+    (cond ((cell-visible (read-cell b p)) #f)
+          (else (fill-cell b p (make-cell (cell-value (read-cell b p)) #t)))))
+  ;; Board (listof Position) -> Board
+  ;; produce the given board with the positions in
+  ;; the given list of positions revealed by (2) or (3)
+  (define (unearth b lop)
+    (cond ((null? lop) b)
           (else
-           (fill-cell b p (make-cell (cell-value (read-cell b p)) #t))))))
+            (let ((new-board (reveal b (car lop))))
+              (cond ((false? new-board) (unearth b (cdr lop)))
+                    ((zero? (cell-value (read-cell b (car lop))))
+                     (unearth new-board (append (neighbours (car lop)) (cdr lop))))
+                    (else (unearth new-board (cdr lop))))))))
+  (let ((p (rc?->pos r c)))
+       (cond ((false? p) #f)
+             ((false? (cell-value (read-cell b p)))
+              (reveal b p))
+             ((zero? (cell-value (read-cell b p)))
+              (unearth b (cons p (neighbours p))))
+             (else (reveal b p)))))
