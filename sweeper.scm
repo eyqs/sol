@@ -164,7 +164,7 @@
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
-  (cond ((false? (cell-visible c)) "===")
+  (cond ((false? (cell-visible c)) "XXX")
         ((is-mine? c) " * ")
         ((zero? (cell-value c)) "___")
         (else (string-append "|" (number->string (cell-value c)) "|"))))
@@ -255,7 +255,12 @@
 (define (guess r c)
   (let ((world-history (drop current-world current-space))
         (new-board (mine (list-ref current-world current-space) r c)))
-    (cond ((not (false? new-board))
+    (cond ((and (not (false? new-board))
+                (solved? new-board))
+           (set! current-world (cons BW (cons (reset new-board #t) (cons new-board world-history))))
+           (set! current-space 0)
+           (render (car current-world)))
+          ((not (false? new-board))
            (set! current-world (cons new-board world-history))
            (set! current-space 0)
            (render (car current-world))))))
@@ -311,6 +316,42 @@
           ((is-mine? (read-cell b (car lop))) (get-number b p (+ n 1) (cdr lop)))
           (else (get-number b p n (cdr lop)))))
   (reset-board b 0))
+
+;; Natural[0, NUMCELL] -> Board
+;; produce a board with the given number of mines randomly placed
+(define (gen-board n)
+  ;; Board Natural[0, NUMCELL] -> Board
+  ;; produce a board from the given board with the
+  ;; given number of additional mines randomly placed
+  (define (add-mines b n)
+    (let ((p (random NUMCELL)))
+      (cond ((zero? n) b)
+            (else (add-mines (make-mine b p) (- n 1))))))
+  ;; Board Position -> Board
+  ;; produce a board from the given board with a mine
+  ;; placed at the first empty cell from the given position
+  (define (make-mine b p)
+    (cond ((= p NUMCELL)
+           (make-mine b 0))
+          ((is-mine? (read-cell b p))
+           (make-mine b (+ p 1)))
+          (else
+           (fill-cell b p (make-cell #f #t)))))
+  (add-mines B0 n))
+
+;; Board -> Boolean
+;; produce #t if the board is solved, otherwise #f
+(define (solved? b)
+  ;; Board Natural[0, NUMCELL) -> Boolean
+  ;; produce #f if the cell is not solved
+  (define (solved? b n)
+    (cond ((= NUMCELL n) #t)
+          (else
+            (let ((c (read-cell b n)))
+              (cond ((and (is-mine? c) (cell-visible c)) #f)
+                    ((and (false? (is-mine? c)) (false? (cell-visible c))) #f)
+                    (else (solved? b (+ n 1))))))))
+  (solved? b 0))
 
 ;; Board Number Number -> Board or false
 ;; produce the given board with the following cells revealed:
