@@ -271,13 +271,10 @@
            (set! current-world (cons new-board world-history))
            (set! current-space 0)
            (render (car current-world))))))
-
-;; mine a cell in the board and add it to the list
 (define (mine r c) (guess mine-out r c))
-;; flag a cell in the board and add it to the list
 (define (flag r c) (guess flag-in r c))
-;; unflag a cell in the board and add it to the list
 (define (unflag r c) (guess flag-out r c))
+(define (solve) (guess solve-next 0 0))
 
 
 
@@ -367,14 +364,14 @@
                     (else (solved? b (+ n 1))))))))
   (solved? b 0))
 
-;; Board Number Number -> Board or false
+;; Board Number Number -> Board or #f
 ;; produce the given board with the following cells revealed:
 ;; (1) the cell with the position given by the numbers
 ;; (2) all cells with value 0 adjacent to a cell with value 0 revealed by (1) or (2)
 ;; (3) all cells adjacent to a cell with value 0 revealed by (1) or (2)
 ;; or #f if the numbers are an invalid row column pair or the position is already revealed
 (define (mine-out b r c)
-  ;; Board Position -> Board or false
+  ;; Board Position -> Board or #f
   ;; produce the given board with the given position
   ;; revealed, or #f if the position is already revealed
   (define (reveal b p)
@@ -399,7 +396,7 @@
               (unearth b (cons p (neighbours p))))
              (else (reveal b p)))))
 
-;; Board Number Number -> Board or false
+;; Board Number Number -> Board or #f
 ;; produce the given board with the position given by the numbers flagged,
 ;; or #f if either the numbers are an invalid row column pair,
 ;; or the position has already been revealed or flagged
@@ -410,7 +407,7 @@
               (fill-cell b p (make-cell (cell-value (read-cell b p)) 2)))
              (else #f))))
 
-;; Board Number Number -> Board or false
+;; Board Number Number -> Board or #f
 ;; produce the given board with the position given by the numbers not flagged,
 ;; or #f if the numbers are an invalid row column pair or the position is not flagged
 (define (flag-out b r c)
@@ -419,3 +416,51 @@
              ((= 2 (cell-state (read-cell b p)))
               (fill-cell b p (make-cell (cell-value (read-cell b p)) 1)))
              (else #f))))
+
+;; Board Number Number -> Board or #f
+;; given a board, produce the next board, or
+;; false if the given board is the last board
+(define (solve-next b r c)
+  ;; Position -> Board or #f
+  ;; given a position, produce a board with all of its adjacent
+  ;; mines flagged and non-mine cells revealed, or #f if there are none
+  (define (solve-pos p)
+    (cond ((= NUMCELL p) #f)
+          (else
+            (let ((c (read-cell b p))
+                  (u (count-cells (neighbours p) 1))
+                  (f (count-cells (neighbours p) 2)))
+              (cond ((not (zero? (cell-state c)))
+                     (solve-pos (+ p 1)))
+                    ((zero? u)
+                     (solve-pos (+ p 1)))
+                    ((= f (cell-value c))
+                     (change-cells (neighbours p) 0))
+                    ((= (+ u f) (cell-value c))
+                     (change-cells (neighbours p) 2))
+                    (else
+                     (solve-pos (+ p 1))))))))
+  ;; (listof Position) Natural[0, 2] -> Natural[0, 9)
+  ;; given a list of positions and a state,
+  ;; produce the number of cells with the state
+  (define (count-cells lop s)
+    (define (count-cells lop acc)
+      (cond ((null? lop) acc)
+            ((= s (cell-state (read-cell b (car lop))))
+             (count-cells (cdr lop) (+ acc 1)))
+            (else (count-cells (cdr lop) acc))))
+    (count-cells lop 0))
+  ;; (listof Position) Natural[0, 2] -> Board
+  ;; given a list of positions and a state, produce the board
+  ;; with only the unrevealed positions set to the state
+  (define (change-cells lop s)
+    (define (change-cells lop b)
+      (cond ((null? lop) b)
+            ((= 1 (cell-state (read-cell b (car lop))))
+             (change-cells
+               (cdr lop)
+               (fill-cell b (car lop) (make-cell (cell-value (read-cell b (car lop))) s))))
+            (else
+             (change-cells (cdr lop) b))))
+    (change-cells lop b))
+  (solve-pos 0))
