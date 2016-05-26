@@ -12,8 +12,11 @@
 ;; =================
 ;; Data definitions:
 
-;; Value is Natural[0, 9) or #f
-;; interp. the number of mines adjacent to a cell,
+;; Value is one of:
+;;  - #f
+;;  - Natural[0, 9)
+;; interp. #f means the cell has a mine, otherwise
+;;         the number of mines adjacent to a cell,
 ;;         adjacent means orthogonal or diagonal
 (define VM #f)
 (define V0 0)
@@ -29,25 +32,28 @@
   (or (false? v)
       (and (integer? v) (<= 0 v 8))))
 
-(define-structure cell value visible)
-;; Cell is (make-cell Value Boolean)
+(define-structure cell value state)
+;; Cell is (make-cell Value Natural[0, 2])
 ;; interp. (make-cell value state) is a cell, where
 ;;         value is the value of the cell, as a Value
-;;         visible is #t if it is visible, otherwise #f
-(define CM (make-cell VM #t))
-(define C0 (make-cell V0 #t))
-(define C1 (make-cell V1 #f))
-(define C2 (make-cell V2 #t))
-(define C3 (make-cell V3 #f))
-(define C4 (make-cell V4 #t))
-(define C5 (make-cell V5 #f))
-(define C6 (make-cell V6 #t))
-(define C7 (make-cell V7 #f))
-(define C8 (make-cell V8 #t))
+;;         state is 0 if the value of the cell is visible
+;;                  1 if the value is not visible, and
+;;                  2 if there is a flag on the cell
+(define CM (make-cell VM 0))
+(define C0 (make-cell V0 0))
+(define C1 (make-cell V1 1))
+(define C2 (make-cell V2 2))
+(define C3 (make-cell V3 1))
+(define C4 (make-cell V4 0))
+(define C5 (make-cell V5 1))
+(define C6 (make-cell V6 0))
+(define C7 (make-cell V7 1))
+(define C8 (make-cell V8 2))
 (define (is-cell? c)
   (and (cell? c)
        (is-value? (cell-value c))
-       (boolean? (cell-visible c))))
+       (integer? (cell-state c))
+       (<= 0 (cell-state c) 2)))
 
 ;; Board is (listof Cell)
 ;; interp. a list of every cell in the board
@@ -164,7 +170,8 @@
 ;; Cell -> String
 ;; convert Cell to String
 (define (cell->str c)
-  (cond ((false? (cell-visible c)) "XXX")
+  (cond ((= 2 (cell-state c)) "<*>")
+        ((= 1 (cell-state c)) "XXX")
         ((is-mine? c) " * ")
         ((zero? (cell-value c)) "___")
         (else (string-append "|" (number->string (cell-value c)) "|"))))
@@ -231,7 +238,7 @@
 
 ;; start with a new board
 (define (main b)
-  (begin (set! current-world (list (reset b #f)))
+  (begin (set! current-world (list (reset b 1)))
          (set! current-space 0)
          (render (car current-world))))
 
@@ -251,19 +258,26 @@
          (set! current-space (+ current-space 1))
          (render (list-ref current-world current-space)))))
 
-;; mine a cell in the board and add it to the list
-(define (guess r c)
+;; guess a cell in the board and add it to the list
+(define (guess fn r c)
   (let ((world-history (drop current-world current-space))
-        (new-board (mine (list-ref current-world current-space) r c)))
+        (new-board (fn (list-ref current-world current-space) r c)))
     (cond ((and (not (false? new-board))
                 (solved? new-board))
-           (set! current-world (cons BW (cons (reset new-board #t) (cons new-board world-history))))
+           (set! current-world (cons BW (cons (reset new-board 0) (cons new-board world-history))))
            (set! current-space 0)
            (render (car current-world)))
           ((not (false? new-board))
            (set! current-world (cons new-board world-history))
            (set! current-space 0)
            (render (car current-world))))))
+
+;; mine a cell in the board and add it to the list
+(define (mine r c) (guess mine-out r c))
+;; flag a cell in the board and add it to the list
+(define (flag r c) (guess flag-in r c))
+;; unflag a cell in the board and add it to the list
+(define (unflag r c) (guess flag-out r c))
 
 
 
@@ -297,18 +311,18 @@
              (newline))))
 
 ;; Board Boolean -> Board
-;; produce the given board with the proper number value in all non-mine cells
-;; and all cells visible if v? is #t, otherwise all cells not visible
-(define (reset b v?)
-  ;; Board Position -> Board
+;; produce the given board with all cells set to the given state
+;; and all non-mine cells set to the proper number value
+(define (reset b s)
+  ;; Board Position Natural[0, 2] -> Board
   ;; set the cell in the given position on the given board
   ;; to the proper number value and make it visible or not
   (define (reset-board b i)
     (cond ((= i NUMCELL) b)
           ((is-mine? (read-cell b i))
-           (reset-board (fill-cell b i (make-cell #f v?)) (+ i 1)))
+           (reset-board (fill-cell b i (make-cell #f s)) (+ i 1)))
           (else
-           (reset-board (fill-cell b i (make-cell (get-number b i 0 (neighbours i)) v?)) (+ i 1)))))
+           (reset-board (fill-cell b i (make-cell (get-number b i 0 (neighbours i)) s)) (+ i 1)))))
   ;; Board Position Number (listof Position) -> Number
   ;; produce the number of mines in the cells in lop
   (define (get-number b p n lop)
@@ -336,7 +350,7 @@
           ((is-mine? (read-cell b p))
            (make-mine b (+ p 1)))
           (else
-           (fill-cell b p (make-cell #f #t)))))
+           (fill-cell b p (make-cell #f 0)))))
   (add-mines B0 n))
 
 ;; Board -> Boolean
@@ -348,8 +362,8 @@
     (cond ((= NUMCELL n) #t)
           (else
             (let ((c (read-cell b n)))
-              (cond ((and (is-mine? c) (cell-visible c)) #f)
-                    ((and (false? (is-mine? c)) (false? (cell-visible c))) #f)
+              (cond ((and (is-mine? c) (zero? (cell-state c))) #f)
+                    ((and (false? (is-mine? c)) (not (zero? (cell-state c)))) #f)
                     (else (solved? b (+ n 1))))))))
   (solved? b 0))
 
@@ -359,13 +373,13 @@
 ;; (2) all cells with value 0 adjacent to a cell with value 0 revealed by (1) or (2)
 ;; (3) all cells adjacent to a cell with value 0 revealed by (1) or (2)
 ;; or #f if the numbers are an invalid row column pair or the position is already revealed
-(define (mine b r c)
+(define (mine-out b r c)
   ;; Board Position -> Board or false
   ;; produce the given board with the given position
   ;; revealed, or #f if the position is already revealed
   (define (reveal b p)
-    (cond ((cell-visible (read-cell b p)) #f)
-          (else (fill-cell b p (make-cell (cell-value (read-cell b p)) #t)))))
+    (cond ((zero? (cell-state (read-cell b p))) #f)
+          (else (fill-cell b p (make-cell (cell-value (read-cell b p)) 0)))))
   ;; Board (listof Position) -> Board
   ;; produce the given board with the positions in
   ;; the given list of positions revealed by (2) or (3)
@@ -384,3 +398,24 @@
              ((zero? (cell-value (read-cell b p)))
               (unearth b (cons p (neighbours p))))
              (else (reveal b p)))))
+
+;; Board Number Number -> Board or false
+;; produce the given board with the position given by the numbers flagged,
+;; or #f if either the numbers are an invalid row column pair,
+;; or the position has already been revealed or flagged
+(define (flag-in b r c)
+  (let ((p (rc?->pos r c)))
+       (cond ((false? p) #f)
+             ((= 1 (cell-state (read-cell b p)))
+              (fill-cell b p (make-cell (cell-value (read-cell b p)) 2)))
+             (else #f))))
+
+;; Board Number Number -> Board or false
+;; produce the given board with the position given by the numbers not flagged,
+;; or #f if the numbers are an invalid row column pair or the position is not flagged
+(define (flag-out b r c)
+  (let ((p (rc?->pos r c)))
+       (cond ((false? p) #f)
+             ((= 2 (cell-state (read-cell b p)))
+              (fill-cell b p (make-cell (cell-value (read-cell b p)) 1)))
+             (else #f))))
