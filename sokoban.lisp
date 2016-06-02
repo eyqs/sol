@@ -101,6 +101,23 @@
       (+ (* r NUMCOLS) c)
       nil))
 
+;; String Position -> Position or nil
+;; produce the position after moving in the
+;; given direction from the given position,
+;; or nil if the given position is at an edge
+(defun dir-to-pos (dir p)
+  (let ((row (pos-to-row p))
+        (col (pos-to-col p)))
+    (cond ((equal "w" dir)
+           (rc-to-pos (- row 1) col))
+          ((equal "a" dir)
+           (rc-to-pos row (- col 1)))
+          ((equal "s" dir)
+           (rc-to-pos (+ row 1) col))
+          ((equal "d" dir)
+           (rc-to-pos row (+ col 1)))
+          (t nil))))
+
 ;; Board Position -> Cell
 ;; produce the cell at the given position on the board
 (defun read-cell (b p)
@@ -133,7 +150,8 @@
   (progn (setf *current-world* (list b))
          (setf *current-cells* (list p))
          (setf *current-space* 0)
-         (render b p)))
+         (render b p)
+         (prompt)))
 
 ;; move to the next board, which is more in front in the list
 (defun next ()
@@ -148,6 +166,44 @@
       (setf *current-space* (+ *current-space* 1)))
   (render (nth *current-space* *current-world*)
           (nth *current-space* *current-cells*)))
+
+;; add the new board to the current world and cells
+(defun add-board (b p)
+  (setf *current-world* (cons b (nthcdr *current-space* *current-world*)))
+  (setf *current-cells* (cons p (nthcdr *current-space* *current-cells*)))
+  (setf *current-space* 0)
+  (render b p))
+
+;; prompt the user for a direction
+(defun prompt ()
+  (loop (progn (princ "Enter a direction [w/a/s/d]: ")
+               (move (read-line *query-io*)))
+     (if (not (y-or-n-p "Continue? [y/n]: "))
+         (return))))
+
+;; try to move in the given direction
+(defun move (dir)
+  (if (null (dir-to-pos dir (nth *current-space* *current-cells*)))
+      (princ "Invalid direction!")
+      (let* ((b (nth *current-space* *current-world*))
+             (p0 (nth *current-space* *current-cells*))
+             (p1 (dir-to-pos dir p0))
+             (p2 (dir-to-pos dir p1))
+             (c1 (read-cell b p1)))
+        (cond ((wallp c1)
+               (princ "Invalid direction!"))
+              ((boxp c1)
+               (let ((c2 (read-cell b p2)))
+                 (cond ((or (null p2) (wallp c2) (boxp c2))
+                        (princ "The box is stuck!"))
+                       ((and (donep c1) (donep c2))
+                        (add-board (fill-cell (fill-cell b p2 0) p1 1) p1))
+                       ((donep c1)
+                        (add-board (fill-cell (fill-cell b p2 2) p1 1) p1))
+                       ((donep c2)
+                        (add-board (fill-cell (fill-cell b p2 0) p1 3) p1))
+                       (t (add-board (fill-cell (fill-cell b p2 2) p1 3) p1)))))
+              (t (add-board b p1))))))
 
 
 
