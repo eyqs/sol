@@ -45,9 +45,10 @@
                       4 4 4 4 4 4 4 4 4 4))
 (defun boardp (b)
   (defun locp (loc acc)
-    (cond ((null loc) (= NUMCELL acc))
-          (t (and (cellp (car loc))
-                  (locp (cdr loc) (+ acc 1))))))
+    (if (null loc)
+        (= NUMCELL acc)
+        (and (cellp (car loc))
+             (locp (cdr loc) (+ acc 1)))))
   (locp b 0))
 
 ;; Position is Natural[0, NUMCELL)
@@ -96,9 +97,9 @@
 ;; convert two numbers to Position only if they are
 ;; a valid zero-indexed row column pair, otherwise nil
 (defun rc-to-pos (r c)
-  (cond ((and (<= 0 r) (<= 0 c) (> NUMROWS r) (> NUMCOLS c))
-         (+ (* r NUMCOLS) c))
-        (t nil)))
+  (if (and (<= 0 r) (<= 0 c) (> NUMROWS r) (> NUMCOLS c))
+      (+ (* r NUMCOLS) c)
+      nil))
 
 ;; Board Position -> Cell
 ;; produce the cell at the given position on the board
@@ -111,6 +112,42 @@
   (append (subseq b 0 p)
           (list c)
           (nthcdr (+ p 1) b)))
+
+
+
+;; =================
+;; Global variables:
+
+;; *current-world* is the list of all the intermediate boards
+;;                 generated in the process of solving the given
+;;                 Sokoban board, which is (last *current-world*)
+;; *current-cells* is the list of the positions the player is in
+;;                 in all the intermediate boards in *current-world*
+;; *current-space* is the index of the current board in *current-world*
+(defvar *current-world* nil)
+(defvar *current-cells* nil)
+(defvar *current-space* 0)
+
+;; start with a new board
+(defun main (b p)
+  (progn (setf *current-world* (list b))
+         (setf *current-cells* (list p))
+         (setf *current-space* 0)
+         (render b p)))
+
+;; move to the next board, which is more in front in the list
+(defun next ()
+  (if (not (zerop *current-space*))
+      (setf *current-space* (- *current-space* 1)))
+  (render (nth *current-space* *current-world*)
+          (nth *current-space* *current-cells*)))
+
+;; move to the previous board, which is more behind in the list
+(defun prev ()
+  (if (not (zerop (- (length *current-world*) *current-space* 1)))
+      (setf *current-space* (+ *current-space* 1)))
+  (render (nth *current-space* *current-world*)
+          (nth *current-space* *current-cells*)))
 
 
 
