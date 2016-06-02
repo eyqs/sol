@@ -172,14 +172,22 @@
   (setf *current-world* (cons b (nthcdr *current-space* *current-world*)))
   (setf *current-cells* (cons p (nthcdr *current-space* *current-cells*)))
   (setf *current-space* 0)
-  (render b p))
+  (render b p)
+  (if (solvedp b)
+      (princ "Congratulations, you win!")))
 
 ;; prompt the user for a direction
 (defun prompt ()
-  (loop (progn (princ "Enter a direction [w/a/s/d]: ")
-               (move (read-line *query-io*)))
-     (if (not (y-or-n-p "Continue? [y/n]: "))
-         (return))))
+  (loop
+     (terpri)
+     (princ "Enter n for the next state, p for the previous state, or")
+     (terpri)
+     (princ "enter q to quit, or enter a direction to move [w/a/s/d]: ")
+     (let ((str (read-line *query-io*)))
+       (cond ((equal "q" str) (return))
+             ((equal "n" str) (next))
+             ((equal "p" str) (prev))
+             (t (move str))))))
 
 ;; try to move in the given direction
 (defun move (dir)
