@@ -29,30 +29,30 @@
 ;; Board is (listof Cell)
 ;; interp. a list of every cell in the board
 (defconstant B0 (list C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-		      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0))
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
+                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0))
 (defconstant B1 (list C4 C4 C4 C4 C4 C4 C4 C4 C4 C4
                       C4 C4 C4 C4 C4 C4 C4 C4 C4 C4
-		      C4 C4 C3 C3 C3 C4 C4 C4 C4 C4
-		      C4 C4 C3 C3 C3 C4 C3 C3 C4 C4
-		      C4 C4 C4 C3 C3 C3 C3 C1 C4 C4
-		      C4 C4 C4 C3 C4 C4 C4 C1 C4 C4
-		      C4 C3 C2 C3 C4 C4 C4 C1 C4 C4
-		      C4 C3 C2 C2 C4 C4 C4 C4 C4 C4
-		      C4 C3 C3 C3 C4 C4 C4 C4 C4 C4
-		      C4 C4 C4 C4 C4 C4 C4 C4 C4 C4))
+                      C4 C4 C3 C3 C3 C4 C4 C4 C4 C4
+                      C4 C4 C3 C3 C3 C4 C3 C3 C4 C4
+                      C4 C4 C4 C3 C3 C3 C3 C1 C4 C4
+                      C4 C4 C4 C3 C4 C4 C4 C1 C4 C4
+                      C4 C3 C2 C3 C4 C4 C4 C1 C4 C4
+                      C4 C3 C2 C2 C4 C4 C4 C4 C4 C4
+                      C4 C3 C3 C3 C4 C4 C4 C4 C4 C4
+                      C4 C4 C4 C4 C4 C4 C4 C4 C4 C4))
 (defun boardp (b)
   (defun locp (loc acc)
     (cond ((null loc) (= NUMCELL acc))
-	  (t (and (cellp (car loc))
-		  (locp (cdr loc) (+ acc 1))))))
+          (t (and (cellp (car loc))
+                  (locp (cdr loc) (+ acc 1))))))
   (locp b 0))
 
 ;; Position is Natural[0, NUMCELL)
@@ -86,10 +86,10 @@
 ;; convert Cell to String
 (defun cell-to-string (c)
   (cond ((= 0 c) "@")
-	((= 1 c) "O")
-	((= 2 c) "a")
-	((= 3 c) "_")
-	((= 4 c) "X")))
+        ((= 1 c) "O")
+        ((= 2 c) "a")
+        ((= 3 c) "_")
+        ((= 4 c) "X")))
 
 ;; Position -> Natural[0, NUMROWS)
 ;; Position -> Natural[0, NUMCOLS)
@@ -104,8 +104,8 @@
 ;; a valid zero-indexed row column pair, otherwise nil
 (defun rc-to-pos (r c)
   (cond ((and (<= 0 r) (<= 0 c) (> NUMROWS r) (> NUMCOLS c))
-	 (+ (* r NUMCOLS) c))
-	(t nil)))
+         (+ (* r NUMCOLS) c))
+        (t nil)))
 
 ;; Board Position -> Cell
 ;; produce the cell at the given position on the board
@@ -116,8 +116,8 @@
 ;; produce a new board with the given cell at the given position
 (defun fill-cell (b p c)
   (append (subseq b 0 p)
-	  (list c)
-	  (nthcdr (+ p 1) b)))
+          (list c)
+          (nthcdr (+ p 1) b)))
 
 
 
@@ -132,27 +132,27 @@
   ;; NUMCOLS exclusive, to help support aid players to find cells
   (defun render-nums (i acc)
     (cond ((zerop i) (concatenate 'string "   0" acc))
-	  ((> 10 i) (render-nums (- i 1) (concatenate 'string " " (write-to-string i) acc)))
-	  (t (render-nums (- i 1) (concatenate 'string (write-to-string i) acc)))))
+          ((> 10 i) (render-nums (- i 1) (concatenate 'string " " (write-to-string i) acc)))
+          (t (render-nums (- i 1) (concatenate 'string (write-to-string i) acc)))))
   ;; Position Number[0, NUMCELL] -> Display
   ;; display a text representation of the given number of cells
   ;; on the given board starting from the given position
   (defun render-cells (p i)
     (cond ((not (zerop i))
-	   (progn (princ (concatenate 'string " " (cell-to-string (read-cell b p))))
-		  (render-cells (+ p 1) (- i 1))))))
+           (progn (princ (concatenate 'string " " (cell-to-string (read-cell b p))))
+                  (render-cells (+ p 1) (- i 1))))))
   ;; Number[0, NUMROWS) -> Display
   ;; display a text representation of the given row on the given board
   (defun render-rows (i)
     (cond ((not (= i NUMROWS))
-	   (progn (cond ((> 10 i) (princ (concatenate 'string " " (write-to-string i))))
-			(t (princ (write-to-string i))))
-		  (render-cells (* NUMCOLS i) NUMCOLS)
-		  (terpri)
-		  (render-rows (+ i 1))))))
+           (progn (cond ((> 10 i) (princ (concatenate 'string " " (write-to-string i))))
+                        (t (princ (write-to-string i))))
+                  (render-cells (* NUMCOLS i) NUMCOLS)
+                  (terpri)
+                  (render-rows (+ i 1))))))
   (progn (princ (render-nums (- NUMCOLS 1) ""))
-	 (terpri)
-	 (render-rows 0)))
+         (terpri)
+         (render-rows 0)))
 
 ;; Board -> Boolean
 ;; produce t if the board is solved, otherwise nil
@@ -161,9 +161,9 @@
   ;; produce nil if the position is not solved
   (defun solved-posp (p)
     (cond ((= NUMCELL p) t)
-	  ((and (not (boxp (read-cell b p)))
-		(donep (read-cell b p))) nil)
-	  ((and (not (donep (read-cell b p)))
-		(boxp (read-cell b p))) nil)
-	  (t (solved-posp (+ p 1)))))
+          ((and (not (boxp (read-cell b p)))
+                (donep (read-cell b p))) nil)
+          ((and (not (donep (read-cell b p)))
+                (boxp (read-cell b p))) nil)
+          (t (solved-posp (+ p 1)))))
   (solved-posp 0))
