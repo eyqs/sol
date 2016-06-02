@@ -18,36 +18,31 @@
 ;;         2 means the cell has a box
 ;;         3 means the cell has nothing
 ;;         4 means the cell is a wall
-(defconstant C0 0)
-(defconstant C1 1)
-(defconstant C2 2)
-(defconstant C3 3)
-(defconstant C4 4)
 (defun cellp (c)
   (and (integerp c) (<= 0 c 4)))
 
 ;; Board is (listof Cell)
 ;; interp. a list of every cell in the board
-(defconstant B0 (list C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0
-                      C0 C0 C0 C0 C0 C0 C0 C0 C0 C0))
-(defconstant B1 (list C4 C4 C4 C4 C4 C4 C4 C4 C4 C4
-                      C4 C4 C4 C4 C4 C4 C4 C4 C4 C4
-                      C4 C4 C3 C3 C3 C4 C4 C4 C4 C4
-                      C4 C4 C3 C3 C3 C4 C3 C3 C4 C4
-                      C4 C4 C4 C3 C3 C3 C3 C1 C4 C4
-                      C4 C4 C4 C3 C4 C4 C4 C1 C4 C4
-                      C4 C3 C2 C3 C4 C4 C4 C1 C4 C4
-                      C4 C3 C2 C2 C4 C4 C4 C4 C4 C4
-                      C4 C3 C3 C3 C4 C4 C4 C4 C4 C4
-                      C4 C4 C4 C4 C4 C4 C4 C4 C4 C4))
+(defconstant B0 (list 0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0
+                      0 0 0 0 0 0 0 0 0 0))
+(defconstant B1 (list 4 4 4 4 4 4 4 4 4 4
+                      4 4 4 4 4 4 4 4 4 4
+                      4 4 3 3 3 4 4 4 4 4
+                      4 4 3 3 3 4 3 3 4 4
+                      4 4 4 3 3 3 3 1 4 4
+                      4 4 4 3 4 4 4 1 4 4
+                      4 3 2 3 4 4 4 1 4 4
+                      4 3 2 2 4 4 4 4 4 4
+                      4 3 3 3 4 4 4 4 4 4
+                      4 4 4 4 4 4 4 4 4 4))
 (defun boardp (b)
   (defun locp (loc acc)
     (cond ((null loc) (= NUMCELL acc))
@@ -57,8 +52,6 @@
 
 ;; Position is Natural[0, NUMCELL)
 ;; interp. the position of a cell on the board
-(defconstant P1 1)
-(defconstant P2 (- NUMCELL 1))
 (defun positionp (p)
   (and (integerp p) (<= 0 p (- NUMCELL 1))))
 
@@ -85,11 +78,11 @@
 ;; Cell -> String
 ;; convert Cell to String
 (defun cell-to-string (c)
-  (cond ((= 0 c) "@")
-        ((= 1 c) "O")
-        ((= 2 c) "a")
-        ((= 3 c) "_")
-        ((= 4 c) "X")))
+  (cond ((= 0 c) " @")
+        ((= 1 c) " O")
+        ((= 2 c) " a")
+        ((= 3 c) " _")
+        ((= 4 c) " X")))
 
 ;; Position -> Natural[0, NUMROWS)
 ;; Position -> Natural[0, NUMCOLS)
@@ -124,35 +117,27 @@
 ;; =================
 ;; Functions:
 
-;; Board -> Display
+;; Board Position -> Display
 ;; display a text representation of the given board
-(defun render (b)
-  ;; Natural[0, NUMCOLS) String -> String
-  ;; produce a string containing the naturals from 0 inclusive to
-  ;; NUMCOLS exclusive, to help support aid players to find cells
-  (defun render-nums (i acc)
-    (cond ((zerop i) (concatenate 'string "   0" acc))
-          ((> 10 i) (render-nums (- i 1) (concatenate 'string " " (write-to-string i) acc)))
-          (t (render-nums (- i 1) (concatenate 'string (write-to-string i) acc)))))
+;; with the player at the given position
+(defun render (b player)
   ;; Position Number[0, NUMCELL] -> Display
   ;; display a text representation of the given number of cells
   ;; on the given board starting from the given position
   (defun render-cells (p i)
-    (cond ((not (zerop i))
-           (progn (princ (concatenate 'string " " (cell-to-string (read-cell b p))))
-                  (render-cells (+ p 1) (- i 1))))))
+    (if (not (zerop i))
+        (progn (princ (if (= player p)
+                          " U"
+                          (cell-to-string (read-cell b p))))
+               (render-cells (+ p 1) (- i 1)))))
   ;; Number[0, NUMROWS) -> Display
   ;; display a text representation of the given row on the given board
   (defun render-rows (i)
-    (cond ((not (= i NUMROWS))
-           (progn (cond ((> 10 i) (princ (concatenate 'string " " (write-to-string i))))
-                        (t (princ (write-to-string i))))
-                  (render-cells (* NUMCOLS i) NUMCOLS)
-                  (terpri)
-                  (render-rows (+ i 1))))))
-  (progn (princ (render-nums (- NUMCOLS 1) ""))
-         (terpri)
-         (render-rows 0)))
+    (if (not (= i NUMROWS))
+        (progn (render-cells (* NUMCOLS i) NUMCOLS)
+               (terpri)
+               (render-rows (+ i 1)))))
+  (render-rows 0))
 
 ;; Board -> Boolean
 ;; produce t if the board is solved, otherwise nil
